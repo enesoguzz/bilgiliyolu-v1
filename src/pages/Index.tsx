@@ -1,0 +1,93 @@
+import { LogOut } from 'lucide-react';
+import { useAppState } from '@/hooks/useAppState';
+import AuthScreen from '@/components/AuthScreen';
+import OnboardingScreen from '@/components/OnboardingScreen';
+import SubjectScreen from '@/components/SubjectScreen';
+import PathScreen from '@/components/PathScreen';
+import SlidesScreen from '@/components/SlidesScreen';
+import QuizScreen from '@/components/QuizScreen';
+import ResultsScreen from '@/components/ResultsScreen';
+
+export default function Index() {
+  const app = useAppState();
+
+  if (app.authLoading) {
+    return (
+      <div className="max-w-md mx-auto min-h-screen bg-background flex items-center justify-center px-6">
+        <p className="text-sm font-semibold text-muted-foreground">Hesap bilgileri yükleniyor...</p>
+      </div>
+    );
+  }
+
+  if (!app.isAuthenticated) {
+    return (
+      <div className="max-w-md mx-auto min-h-screen">
+        <AuthScreen
+          loading={app.authLoading}
+          error={app.authError}
+          notice={app.authNotice}
+          onSignIn={app.signIn}
+          onSignUp={app.signUp}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-md mx-auto min-h-screen bg-background">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center justify-between">
+        <div className="min-w-0">
+          <p className="text-xs font-bold text-muted-foreground">Bilgi Yolu</p>
+          <p className="text-xs text-foreground truncate max-w-52">{app.userEmail}</p>
+        </div>
+        <button
+          type="button"
+          onClick={app.signOut}
+          className="w-10 h-10 rounded-xl border border-border bg-card flex items-center justify-center active:scale-95 transition-all"
+          aria-label="Çıkış yap"
+        >
+          <LogOut className="w-4 h-4 text-foreground" />
+        </button>
+      </div>
+
+      {app.progressLoading && (
+        <div className="px-4 py-2 bg-primary/10 text-primary text-xs font-bold text-center">
+          İlerlemen buluttan yükleniyor...
+        </div>
+      )}
+
+      {app.screen === 'onboarding' && (
+        <OnboardingScreen onSelectGrade={app.selectGrade} />
+      )}
+      {app.screen === 'subjects' && app.gradeId && (
+        <SubjectScreen
+          gradeId={app.gradeId}
+          onSelectSubject={app.selectSubject}
+          onBack={app.goToOnboarding}
+        />
+      )}
+      {app.screen === 'path' && app.gradeId && app.subjectId && (
+        <PathScreen
+          gradeId={app.gradeId}
+          subjectId={app.subjectId}
+          completedUnits={app.progress.completedUnits}
+          unitScores={app.progress.unitScores}
+          onSelectUnit={app.selectUnit}
+          onBack={app.goToSubjects}
+        />
+      )}
+      {app.screen === 'slides' && app.unitId && (
+        <SlidesScreen unitId={app.unitId} onComplete={app.startQuiz} />
+      )}
+      {app.screen === 'quiz' && app.unitId && (
+        <QuizScreen unitId={app.unitId} onComplete={app.completeQuiz} />
+      )}
+      {app.screen === 'results' && (
+        <ResultsScreen
+          score={app.progress.unitScores[app.unitId!] || 0}
+          onContinue={app.goToPath}
+        />
+      )}
+    </div>
+  );
+}
