@@ -46,14 +46,20 @@ export default function AuthScreen({ loading, error, notice, onSignIn, onSignUp 
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-6 safe-bottom">
-      <div className="w-full max-w-sm">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center mx-auto mb-4">
-            <BookOpen className="w-8 h-8" />
+    <div className="min-h-screen bg-background px-5 py-6 safe-bottom">
+      <div className="max-w-sm mx-auto">
+        <div className="mb-5 overflow-hidden rounded-3xl border border-border bg-card">
+          <img
+            src="/auth-hero.svg"
+            alt="Bilgi Yolu öğrenme akışı"
+            className="w-full aspect-[16/11] object-cover bg-primary/5"
+          />
+          <div className="p-4">
+            <h1 className="text-2xl font-extrabold text-foreground">Bilgi Yolu</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Sınıfını seç, ders yolunda ilerle, quizlerle öğrenmeni güvenle sakla.
+            </p>
           </div>
-          <h1 className="text-2xl font-extrabold text-foreground">Bilgi Yolu</h1>
-          <p className="text-sm text-muted-foreground mt-1">Hesabına gir, ilerlemen kaybolmasın</p>
         </div>
 
         <div className="grid grid-cols-2 gap-2 bg-muted p-1 rounded-xl mb-4">
