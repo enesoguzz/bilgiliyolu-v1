@@ -7,6 +7,7 @@ interface PathScreenProps {
   subjectId: string;
   completedUnits: string[];
   unitScores: Record<string, number>;
+  units?: Unit[];
   onSelectUnit: (unitId: string) => void;
   onBack: () => void;
 }
@@ -16,10 +17,11 @@ export default function PathScreen({
   subjectId,
   completedUnits,
   unitScores,
+  units: sourceUnits,
   onSelectUnit,
   onBack,
 }: PathScreenProps) {
-  const units = getUnitsForSubjectAndGrade(subjectId, gradeId);
+  const units = getUnitsForSubjectAndGrade(subjectId, gradeId, sourceUnits);
   const subject = subjects.find(item => item.id === subjectId);
 
   const getUnitStatus = (unit: Unit, index: number): 'completed' | 'active' | 'locked' => {

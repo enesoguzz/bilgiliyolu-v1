@@ -4,6 +4,7 @@ import { Question } from '@/types/curriculum';
 
 interface QuizScreenProps {
   unitId: string;
+  questions?: Question[];
   onComplete: (score: number) => void;
 }
 
@@ -12,8 +13,8 @@ function shuffleAndPick(questions: Question[], count: number): Question[] {
   return shuffled.slice(0, count);
 }
 
-export default function QuizScreen({ unitId, onComplete }: QuizScreenProps) {
-  const questions = useMemo(() => shuffleAndPick(getQuestionsForUnit(unitId), 7), [unitId]);
+export default function QuizScreen({ unitId, questions: sourceQuestions, onComplete }: QuizScreenProps) {
+  const questions = useMemo(() => shuffleAndPick(getQuestionsForUnit(unitId, sourceQuestions), 7), [sourceQuestions, unitId]);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [correct, setCorrect] = useState(0);

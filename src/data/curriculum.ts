@@ -293,20 +293,41 @@ function makeQuestionsForUnit(unit: Unit): Question[] {
 
 export const questions: Question[] = units.flatMap(makeQuestionsForUnit);
 
+function mergeById<T extends { id: string }>(baseItems: T[], overrideItems: T[]): T[] {
+  const merged = new Map<string, T>();
+
+  for (const item of baseItems) merged.set(item.id, item);
+  for (const item of overrideItems) merged.set(item.id, item);
+
+  return Array.from(merged.values());
+}
+
+export function mergeUnits(remoteUnits: Unit[]): Unit[] {
+  return mergeById(units, remoteUnits);
+}
+
+export function mergeSlides(remoteSlides: TopicSlide[]): TopicSlide[] {
+  return mergeById(slides, remoteSlides);
+}
+
+export function mergeQuestions(remoteQuestions: Question[]): Question[] {
+  return mergeById(questions, remoteQuestions);
+}
+
 export function getSubjectsForGrade(gradeId: number): Subject[] {
   return subjects.filter(subject => subject.grades.includes(gradeId));
 }
 
-export function getUnitsForSubjectAndGrade(subjectId: string, gradeId: number): Unit[] {
-  return units
+export function getUnitsForSubjectAndGrade(subjectId: string, gradeId: number, sourceUnits: Unit[] = units): Unit[] {
+  return sourceUnits
     .filter(unit => unit.subjectId === subjectId && unit.gradeId === gradeId)
     .sort((a, b) => a.order - b.order);
 }
 
-export function getSlidesForUnit(unitId: string): TopicSlide[] {
-  return slides.filter(slide => slide.unitId === unitId).sort((a, b) => a.order - b.order);
+export function getSlidesForUnit(unitId: string, sourceSlides: TopicSlide[] = slides): TopicSlide[] {
+  return sourceSlides.filter(slide => slide.unitId === unitId).sort((a, b) => a.order - b.order);
 }
 
-export function getQuestionsForUnit(unitId: string): Question[] {
-  return questions.filter(question => question.unitId === unitId);
+export function getQuestionsForUnit(unitId: string, sourceQuestions: Question[] = questions): Question[] {
+  return sourceQuestions.filter(question => question.unitId === unitId);
 }

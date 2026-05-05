@@ -4,6 +4,7 @@ import { GradeLevel, UserProgress } from '@/types/curriculum';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type AppScreen =
+  | 'admin'
   | 'level'
   | 'onboarding'
   | 'subjects'
@@ -26,6 +27,10 @@ type ProgressRow = {
   completed_units: string[] | null;
   unit_scores: Record<string, number> | null;
   current_unit: string | null;
+};
+
+type ProfileRow = {
+  is_admin: boolean | null;
 };
 
 const STORAGE_KEY = 'bilgi-yolu-progress';
@@ -94,6 +99,7 @@ export function useAppState() {
   const [remoteReady, setRemoteReady] = useState(!isSupabaseConfigured);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const currentUser = session?.user ?? null;
   const currentUserId = currentUser?.id ?? null;
   const currentUserEmail = getUserEmail(currentUser);
@@ -160,12 +166,24 @@ export function useAppState() {
         .eq('user_id', currentUserId)
         .maybeSingle();
 
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', currentUserId)
+        .maybeSingle();
+
       if (!active) return;
 
       if (error) {
         setAuthError(error.message);
         setProgressLoading(false);
         return;
+      }
+
+      if (profileError) {
+        setAuthError(profileError.message);
+      } else {
+        setIsAdmin(Boolean((profileData as ProfileRow | null)?.is_admin));
       }
 
       if (data) {
@@ -280,6 +298,7 @@ export function useAppState() {
     await supabase.auth.signOut();
     setSession(null);
     setRemoteReady(false);
+    setIsAdmin(false);
   }, []);
 
   const selectLevel = useCallback((level: GradeLevel) => {
@@ -366,12 +385,20 @@ export function useAppState() {
     }));
   }, []);
 
+  const goToAdmin = useCallback(() => {
+    setState(current => ({
+      ...current,
+      screen: 'admin',
+    }));
+  }, []);
+
   return {
     ...state,
     authLoading,
     progressLoading,
     authError,
     authNotice,
+    isAdmin,
     isAuthenticated: Boolean(currentUser),
     userEmail: currentUserEmail,
     signIn,
@@ -387,5 +414,6 @@ export function useAppState() {
     goToSubjects,
     goToOnboarding,
     goToLevelSelection,
+    goToAdmin,
   };
 }
