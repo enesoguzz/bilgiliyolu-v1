@@ -1,6 +1,7 @@
 import { LogOut } from 'lucide-react';
 import { useAppState } from '@/hooks/useAppState';
 import AuthScreen from '@/components/AuthScreen';
+import LevelSelectionScreen from '@/components/LevelSelectionScreen';
 import OnboardingScreen from '@/components/OnboardingScreen';
 import SubjectScreen from '@/components/SubjectScreen';
 import PathScreen from '@/components/PathScreen';
@@ -56,8 +57,15 @@ export default function Index() {
         </div>
       )}
 
-      {app.screen === 'onboarding' && (
-        <OnboardingScreen onSelectGrade={app.selectGrade} />
+      {app.screen === 'level' && (
+        <LevelSelectionScreen onSelectLevel={app.selectLevel} />
+      )}
+      {app.screen === 'onboarding' && app.selectedLevel && (
+        <OnboardingScreen
+          level={app.selectedLevel}
+          onSelectGrade={app.selectGrade}
+          onBack={app.goToLevelSelection}
+        />
       )}
       {app.screen === 'subjects' && app.gradeId && (
         <SubjectScreen

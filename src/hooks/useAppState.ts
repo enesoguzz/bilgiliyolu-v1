@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
-import { UserProgress } from '@/types/curriculum';
+import { GradeLevel, UserProgress } from '@/types/curriculum';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type AppScreen =
+  | 'level'
   | 'onboarding'
   | 'subjects'
   | 'path'
@@ -13,6 +14,7 @@ export type AppScreen =
 
 interface AppState {
   screen: AppScreen;
+  selectedLevel: GradeLevel | null;
   gradeId: number | null;
   subjectId: string | null;
   unitId: string | null;
@@ -66,7 +68,7 @@ function readProgress(): UserProgress {
 }
 
 function screenForProgress(progress: UserProgress): AppScreen {
-  return progress.gradeId ? 'subjects' : 'onboarding';
+  return progress.gradeId ? 'subjects' : 'level';
 }
 
 function getUserEmail(user: User | null): string | null {
@@ -79,6 +81,7 @@ export function useAppState() {
 
     return {
       screen: screenForProgress(progress),
+      selectedLevel: null,
       gradeId: progress.gradeId || null,
       subjectId: null,
       unitId: null,
@@ -170,6 +173,7 @@ export function useAppState() {
         setState(current => ({
           ...current,
           screen: screenForProgress(remoteProgress),
+          selectedLevel: null,
           gradeId: remoteProgress.gradeId || null,
           subjectId: null,
           unitId: null,
@@ -278,6 +282,14 @@ export function useAppState() {
     setRemoteReady(false);
   }, []);
 
+  const selectLevel = useCallback((level: GradeLevel) => {
+    setState(current => ({
+      ...current,
+      selectedLevel: level,
+      screen: 'onboarding',
+    }));
+  }, []);
+
   const selectGrade = useCallback((gradeId: number) => {
     setState(current => ({
       ...current,
@@ -337,11 +349,20 @@ export function useAppState() {
   const goToOnboarding = useCallback(() => {
     setState(current => ({
       ...current,
-      screen: 'onboarding',
+      screen: 'level',
+      selectedLevel: null,
       gradeId: null,
       subjectId: null,
       unitId: null,
       progress: { ...current.progress, gradeId: 0 },
+    }));
+  }, []);
+
+  const goToLevelSelection = useCallback(() => {
+    setState(current => ({
+      ...current,
+      screen: 'level',
+      selectedLevel: null,
     }));
   }, []);
 
@@ -356,6 +377,7 @@ export function useAppState() {
     signIn,
     signUp,
     signOut,
+    selectLevel,
     selectGrade,
     selectSubject,
     selectUnit,
@@ -364,5 +386,6 @@ export function useAppState() {
     goToPath,
     goToSubjects,
     goToOnboarding,
+    goToLevelSelection,
   };
 }
