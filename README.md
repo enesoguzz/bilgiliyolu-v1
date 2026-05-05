@@ -61,6 +61,18 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 Bu kurulumdan sonra kullanıcılar e-posta/şifre ile kayıt olabilir. Kullanıcı profili `profiles`, ilerleme bilgileri `user_progress` tablosunda saklanır.
 
+## Admin Panel
+
+Admin paneli sadece `profiles.is_admin = true` olan kullanıcılarda görünür. İlk admin hesabını Supabase SQL Editor'da şu sorguyla yetkilendirebilirsin:
+
+```sql
+update public.profiles
+set is_admin = true
+where email = 'senin-epostan@example.com';
+```
+
+Admin panelden ünite, slayt ve soru eklenebilir veya aynı `id` ile mevcut içerik güncellenebilir. Supabase içerikleri öğrenci ekranlarında statik örnek içeriklerin üzerine yazılır; yeni `id` ile eklenen kayıtlar ek içerik olarak görünür.
+
 ## Yayına Hazırlık
 
 ```bash
