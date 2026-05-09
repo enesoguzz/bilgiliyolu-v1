@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { GradeLevel, UserProgress } from '@/types/curriculum';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -116,6 +116,7 @@ export function useAppState() {
   const [remoteReady, setRemoteReady] = useState(!isSupabaseConfigured);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [authGateActive, setAuthGateActive] = useState(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const currentUser = session?.user ?? null;
@@ -156,6 +157,7 @@ export function useAppState() {
       if (!nextSession) {
         setRemoteReady(false);
         setAuthNotice(null);
+        setAuthGateActive(false);
       }
     });
 
@@ -309,6 +311,7 @@ export function useAppState() {
     if (!supabase) return { ok: false };
 
     setAuthLoading(true);
+    setAuthGateActive(true);
     setAuthError(null);
     setAuthNotice(null);
 
@@ -318,6 +321,7 @@ export function useAppState() {
     if (!trimmedIdentifier.includes('@') && !normalizedPhone) {
       setAuthError('Telefon numarası 5 ile başlayan 10 haneli formatta olmalı.');
       setAuthLoading(false);
+      setAuthGateActive(false);
       return { ok: false };
     }
 
@@ -330,6 +334,7 @@ export function useAppState() {
     if (error) {
       setAuthError(error.message);
       setAuthLoading(false);
+      setAuthGateActive(false);
       return { ok: false };
     }
 
@@ -349,6 +354,7 @@ export function useAppState() {
       if (otpError) {
         setAuthError(otpError.message);
         setAuthLoading(false);
+        setAuthGateActive(false);
         return { ok: false };
       }
 
@@ -362,6 +368,7 @@ export function useAppState() {
     if (otpError) {
       setAuthError(otpError.message);
       setAuthLoading(false);
+      setAuthGateActive(false);
       return { ok: false };
     }
 
@@ -501,6 +508,7 @@ export function useAppState() {
     if (error) {
       setAuthError(error.message);
     } else {
+      setAuthGateActive(false);
       setAuthNotice('Telefon doğrulandı.');
     }
 
@@ -511,6 +519,7 @@ export function useAppState() {
     if (!supabase) return;
 
     setAuthLoading(true);
+    setAuthGateActive(true);
     setAuthError(null);
     setAuthNotice(null);
 
@@ -523,7 +532,8 @@ export function useAppState() {
     if (error) {
       setAuthError(error.message);
     } else {
-      setAuthNotice('E-posta doÄŸrulandÄ±.');
+      setAuthGateActive(false);
+      setAuthNotice('E-posta doğrulandı.');
     }
 
     setAuthLoading(false);
@@ -656,7 +666,7 @@ export function useAppState() {
     authNotice,
     passwordRecovery,
     isAdmin,
-    isAuthenticated: Boolean(currentUser),
+    isAuthenticated: Boolean(currentUser) && !authGateActive,
     userEmail: currentUserEmail,
     signIn,
     signInWithPassword,
@@ -693,3 +703,4 @@ function normalizeTurkishPhone(phone: string): string | null {
 
   return null;
 }
+
