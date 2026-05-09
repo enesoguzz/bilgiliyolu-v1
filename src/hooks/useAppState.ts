@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from 'react';
+﻿import { useCallback, useEffect, useRef, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { GradeLevel, UserProgress } from '@/types/curriculum';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -117,6 +117,7 @@ export function useAppState() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [authGateActive, setAuthGateActive] = useState(false);
+  const authGateActiveRef = useRef(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const currentUser = session?.user ?? null;
@@ -129,6 +130,10 @@ export function useAppState() {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.progress));
   }, [state.progress]);
+
+  useEffect(() => {
+    authGateActiveRef.current = authGateActive;
+  }, [authGateActive]);
 
   useEffect(() => {
     if (!supabase) {
@@ -154,7 +159,7 @@ export function useAppState() {
         setAuthNotice('Yeni şifreni belirleyebilirsin.');
       }
 
-      if (!nextSession) {
+      if (!nextSession && !authGateActiveRef.current) {
         setRemoteReady(false);
         setAuthNotice(null);
         setAuthGateActive(false);
@@ -358,7 +363,7 @@ export function useAppState() {
         return { ok: false };
       }
 
-      setAuthNotice('DoÄŸrulama kodu e-posta adresine gÃ¶nderildi.');
+      setAuthNotice('Doğrulama kodu e-posta adresine gönderildi.');
       setAuthLoading(false);
       return { ok: true, type: 'email', identifier: trimmedIdentifier };
     }
@@ -372,7 +377,7 @@ export function useAppState() {
       return { ok: false };
     }
 
-    setAuthNotice('DoÄŸrulama kodu telefonuna gÃ¶nderildi.');
+    setAuthNotice('Doğrulama kodu telefonuna gönderildi.');
     setAuthLoading(false);
     return { ok: true, type: 'sms', identifier: trimmedIdentifier };
   }, []);
@@ -703,4 +708,5 @@ function normalizeTurkishPhone(phone: string): string | null {
 
   return null;
 }
+
 

@@ -177,14 +177,20 @@ export default function AuthScreen({
           )}
 
           {activeMode === 'verify' && (
-            <IconInput
-              label="Doğrulama Kodu"
-              icon={<KeyRound className="h-6 w-6 sm:h-9 sm:w-9" />}
-              value={smsCode}
-              onChange={setSmsCode}
-              placeholder="6 haneli kod"
-              inputMode="numeric"
-            />
+            <>
+              <p className="-mt-3 rounded-[18px] bg-[#f7f5f5] px-5 py-4 text-[14px] font-semibold leading-6 text-[#42493e]">
+                Kod {verificationType === 'email' ? 'e-posta adresine' : 'telefonuna'} gönderildi. Lütfen gelen kodu
+                aşağıya yaz.
+              </p>
+              <IconInput
+                label="Doğrulama Kodu"
+                icon={<KeyRound className="h-6 w-6 sm:h-9 sm:w-9" />}
+                value={smsCode}
+                onChange={setSmsCode}
+                placeholder="6 haneli kod"
+                inputMode="numeric"
+              />
+            </>
           )}
 
           {activeMode === 'register' && (
