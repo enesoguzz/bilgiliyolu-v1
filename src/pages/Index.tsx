@@ -1,5 +1,7 @@
-import { LogOut } from 'lucide-react';
+import { LogOut, Shield } from 'lucide-react';
 import { useAppState } from '@/hooks/useAppState';
+import { useContentLibrary } from '@/hooks/useContentLibrary';
+import AdminPanel from '@/components/AdminPanel';
 import AuthScreen from '@/components/AuthScreen';
 import LevelSelectionScreen from '@/components/LevelSelectionScreen';
 import OnboardingScreen from '@/components/OnboardingScreen';
@@ -11,6 +13,7 @@ import ResultsScreen from '@/components/ResultsScreen';
 
 export default function Index() {
   const app = useAppState();
+  const content = useContentLibrary(app.isAuthenticated);
 
   if (app.authLoading) {
     return (
@@ -27,8 +30,15 @@ export default function Index() {
           loading={app.authLoading}
           error={app.authError}
           notice={app.authNotice}
+          passwordRecovery={app.passwordRecovery}
           onSignIn={app.signIn}
+          onPasswordSignIn={app.signInWithPassword}
           onSignUp={app.signUp}
+          onResetPassword={app.resetPassword}
+          onUpdatePassword={app.updatePassword}
+          onSendPhoneOtp={app.sendPhoneOtp}
+          onVerifyPhoneOtp={app.verifyPhoneOtp}
+          onOAuthSignIn={app.signInWithOAuth}
         />
       </div>
     );
@@ -37,18 +47,33 @@ export default function Index() {
   return (
     <div className="max-w-md mx-auto min-h-screen bg-background">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-muted-foreground">Bilgi Yolu</p>
-          <p className="text-xs text-foreground truncate max-w-52">{app.userEmail}</p>
+        <div className="min-w-0 flex items-center gap-2">
+          <img src="/kecci-logo.png" alt="Keççi logo" className="h-8 w-8 object-contain" />
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-muted-foreground">Keççi</p>
+            <p className="text-xs text-foreground truncate max-w-44">{app.userEmail}</p>
+          </div>
         </div>
-        <button
-          type="button"
-          onClick={app.signOut}
-          className="w-10 h-10 rounded-xl border border-border bg-card flex items-center justify-center active:scale-95 transition-all"
-          aria-label="Çıkış yap"
-        >
-          <LogOut className="w-4 h-4 text-foreground" />
-        </button>
+        <div className="flex items-center gap-2">
+          {app.isAdmin && (
+            <button
+              type="button"
+              onClick={app.goToAdmin}
+              className="w-10 h-10 rounded-xl border border-border bg-card flex items-center justify-center active:scale-95 transition-all"
+              aria-label="Admin paneli"
+            >
+              <Shield className="w-4 h-4 text-foreground" />
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={app.signOut}
+            className="w-10 h-10 rounded-xl border border-border bg-card flex items-center justify-center active:scale-95 transition-all"
+            aria-label="Çıkış yap"
+          >
+            <LogOut className="w-4 h-4 text-foreground" />
+          </button>
+        </div>
       </div>
 
       {app.progressLoading && (
@@ -56,7 +81,27 @@ export default function Index() {
           İlerlemen buluttan yükleniyor...
         </div>
       )}
+      {content.loading && (
+        <div className="px-4 py-2 bg-primary/10 text-primary text-xs font-bold text-center">
+          İçerikler güncelleniyor...
+        </div>
+      )}
+      {content.error && (
+        <div className="px-4 py-2 bg-destructive/10 text-destructive text-xs font-bold text-center">
+          İçerik yüklenemedi: {content.error}
+        </div>
+      )}
 
+      {app.screen === 'admin' && app.isAdmin && (
+        <AdminPanel
+          units={content.units}
+          remoteUnits={content.remoteUnits}
+          remoteSlides={content.remoteSlides}
+          remoteQuestions={content.remoteQuestions}
+          onBack={app.gradeId ? app.goToSubjects : app.goToOnboarding}
+          onRefresh={content.refreshContent}
+        />
+      )}
       {app.screen === 'level' && (
         <LevelSelectionScreen onSelectLevel={app.selectLevel} />
       )}
@@ -80,15 +125,16 @@ export default function Index() {
           subjectId={app.subjectId}
           completedUnits={app.progress.completedUnits}
           unitScores={app.progress.unitScores}
+          units={content.units}
           onSelectUnit={app.selectUnit}
           onBack={app.goToSubjects}
         />
       )}
       {app.screen === 'slides' && app.unitId && (
-        <SlidesScreen unitId={app.unitId} onComplete={app.startQuiz} />
+        <SlidesScreen unitId={app.unitId} slides={content.slides} onComplete={app.startQuiz} />
       )}
       {app.screen === 'quiz' && app.unitId && (
-        <QuizScreen unitId={app.unitId} onComplete={app.completeQuiz} />
+        <QuizScreen unitId={app.unitId} questions={content.questions} onComplete={app.completeQuiz} />
       )}
       {app.screen === 'results' && (
         <ResultsScreen

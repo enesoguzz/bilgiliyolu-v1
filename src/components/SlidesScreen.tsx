@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { getSlidesForUnit } from '@/data/curriculum';
+import { TopicSlide } from '@/types/curriculum';
 
 interface SlidesScreenProps {
   unitId: string;
+  slides?: TopicSlide[];
   onComplete: () => void;
 }
 
-export default function SlidesScreen({ unitId, onComplete }: SlidesScreenProps) {
-  const slides = getSlidesForUnit(unitId);
+export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete }: SlidesScreenProps) {
+  const slides = getSlidesForUnit(unitId, sourceSlides);
   const [currentIndex, setCurrentIndex] = useState(0);
 
   const slide = slides[currentIndex];

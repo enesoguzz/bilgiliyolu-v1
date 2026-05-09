@@ -4,6 +4,7 @@ import { GradeLevel, UserProgress } from '@/types/curriculum';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 
 export type AppScreen =
+  | 'admin'
   | 'level'
   | 'onboarding'
   | 'subjects'
@@ -26,6 +27,10 @@ type ProgressRow = {
   completed_units: string[] | null;
   unit_scores: Record<string, number> | null;
   current_unit: string | null;
+};
+
+type ProfileRow = {
+  is_admin: boolean | null;
 };
 
 const STORAGE_KEY = 'bilgi-yolu-progress';
@@ -94,6 +99,8 @@ export function useAppState() {
   const [remoteReady, setRemoteReady] = useState(!isSupabaseConfigured);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [passwordRecovery, setPasswordRecovery] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
   const currentUser = session?.user ?? null;
   const currentUserId = currentUser?.id ?? null;
   const currentUserEmail = getUserEmail(currentUser);
@@ -120,9 +127,15 @@ export function useAppState() {
       setAuthLoading(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: listener } = supabase.auth.onAuthStateChange((event, nextSession) => {
       setSession(nextSession);
       setAuthError(null);
+
+      if (event === 'PASSWORD_RECOVERY') {
+        setPasswordRecovery(true);
+        setAuthNotice('Yeni şifreni belirleyebilirsin.');
+      }
+
       if (!nextSession) {
         setRemoteReady(false);
         setAuthNotice(null);
@@ -160,12 +173,24 @@ export function useAppState() {
         .eq('user_id', currentUserId)
         .maybeSingle();
 
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', currentUserId)
+        .maybeSingle();
+
       if (!active) return;
 
       if (error) {
         setAuthError(error.message);
         setProgressLoading(false);
         return;
+      }
+
+      if (profileError) {
+        setAuthError(profileError.message);
+      } else {
+        setIsAdmin(Boolean((profileData as ProfileRow | null)?.is_admin));
       }
 
       if (data) {
@@ -234,30 +259,77 @@ export function useAppState() {
     return () => window.clearTimeout(timer);
   }, [state.progress, currentUserId, remoteReady]);
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string) => {
     if (!supabase) return;
 
     setAuthLoading(true);
     setAuthError(null);
     setAuthNotice(null);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { error } = await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
 
-    if (error) setAuthError(error.message);
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setAuthNotice('Giriş bağlantısı e-posta adresine gönderildi.');
+    }
     setAuthLoading(false);
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, displayName: string) => {
+  const signInWithPassword = useCallback(async (identifier: string, password: string) => {
     if (!supabase) return;
 
     setAuthLoading(true);
     setAuthError(null);
     setAuthNotice(null);
+
+    const trimmedIdentifier = identifier.trim();
+    const normalizedPhone = trimmedIdentifier.includes('@') ? null : normalizeTurkishPhone(trimmedIdentifier);
+
+    if (!trimmedIdentifier.includes('@') && !normalizedPhone) {
+      setAuthError('Telefon numarası 5 ile başlayan 10 haneli formatta olmalı.');
+      setAuthLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword(
+      trimmedIdentifier.includes('@')
+        ? { email: trimmedIdentifier, password }
+        : { phone: normalizedPhone!, password },
+    );
+
+    if (error) {
+      setAuthError(error.message);
+    }
+
+    setAuthLoading(false);
+  }, []);
+
+  const signUp = useCallback(async (email: string, password: string, displayName: string, phone?: string) => {
+    if (!supabase) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const normalizedPhone = phone ? normalizeTurkishPhone(phone) : null;
+    if (phone && !normalizedPhone) {
+      setAuthError('Telefon numarası 5 ile başlayan 10 haneli formatta olmalı.');
+      setAuthLoading(false);
+      return;
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
+      phone: normalizedPhone ?? undefined,
       options: {
+        emailRedirectTo: window.location.origin,
         data: {
           display_name: displayName.trim() || null,
         },
@@ -267,7 +339,7 @@ export function useAppState() {
     if (error) {
       setAuthError(error.message);
     } else if (!data.session) {
-      setAuthNotice('Kayıt alındı. Supabase e-posta doğrulaması açıksa gelen kutunu kontrol et.');
+      setAuthNotice('Kayıt alındı. E-posta doğrulama bağlantısı için gelen kutunu kontrol et.');
     } else {
       setAuthNotice('Hesabın oluşturuldu.');
     }
@@ -275,11 +347,125 @@ export function useAppState() {
     setAuthLoading(false);
   }, []);
 
+  const resetPassword = useCallback(async (email: string) => {
+    if (!supabase) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: window.location.origin,
+    });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setAuthNotice('Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');
+    }
+
+    setAuthLoading(false);
+  }, []);
+
+  const updatePassword = useCallback(async (password: string) => {
+    if (!supabase) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const { error } = await supabase.auth.updateUser({ password });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setPasswordRecovery(false);
+      setAuthNotice('Şifren güncellendi.');
+    }
+
+    setAuthLoading(false);
+  }, []);
+
+  const sendPhoneOtp = useCallback(async (phone: string) => {
+    if (!supabase) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const normalizedPhone = normalizeTurkishPhone(phone);
+    if (!normalizedPhone) {
+      setAuthError('Telefon numarası 5 ile başlayan 10 haneli formatta olmalı.');
+      setAuthLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.signInWithOtp({ phone: normalizedPhone });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setAuthNotice('SMS doğrulama kodu gönderildi.');
+    }
+
+    setAuthLoading(false);
+  }, []);
+
+  const verifyPhoneOtp = useCallback(async (phone: string, token: string) => {
+    if (!supabase) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const normalizedPhone = normalizeTurkishPhone(phone);
+    if (!normalizedPhone) {
+      setAuthError('Telefon numarası 5 ile başlayan 10 haneli formatta olmalı.');
+      setAuthLoading(false);
+      return;
+    }
+
+    const { error } = await supabase.auth.verifyOtp({
+      phone: normalizedPhone,
+      token,
+      type: 'sms',
+    });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setAuthNotice('Telefon doğrulandı.');
+    }
+
+    setAuthLoading(false);
+  }, []);
+
+  const signInWithOAuth = useCallback(async (provider: 'google' | 'apple') => {
+    if (!supabase) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
+    if (error) {
+      setAuthError(error.message);
+      setAuthLoading(false);
+    }
+  }, []);
+
   const signOut = useCallback(async () => {
     if (!supabase) return;
     await supabase.auth.signOut();
     setSession(null);
     setRemoteReady(false);
+    setIsAdmin(false);
   }, []);
 
   const selectLevel = useCallback((level: GradeLevel) => {
@@ -366,16 +552,31 @@ export function useAppState() {
     }));
   }, []);
 
+  const goToAdmin = useCallback(() => {
+    setState(current => ({
+      ...current,
+      screen: 'admin',
+    }));
+  }, []);
+
   return {
     ...state,
     authLoading,
     progressLoading,
     authError,
     authNotice,
+    passwordRecovery,
+    isAdmin,
     isAuthenticated: Boolean(currentUser),
     userEmail: currentUserEmail,
     signIn,
+    signInWithPassword,
     signUp,
+    resetPassword,
+    updatePassword,
+    sendPhoneOtp,
+    verifyPhoneOtp,
+    signInWithOAuth,
     signOut,
     selectLevel,
     selectGrade,
@@ -387,5 +588,17 @@ export function useAppState() {
     goToSubjects,
     goToOnboarding,
     goToLevelSelection,
+    goToAdmin,
   };
+}
+
+function normalizeTurkishPhone(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  const withoutLeadingZero = digits.startsWith('0') ? digits.slice(1) : digits;
+
+  if (/^5\d{9}$/.test(withoutLeadingZero)) {
+    return `+90${withoutLeadingZero}`;
+  }
+
+  return null;
 }

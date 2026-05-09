@@ -1,10 +1,14 @@
-# Bilgi Yolu
+# Keççi
 
-Bilgi Yolu, 1-12. sınıf öğrencileri için mobil öncelikli bir öğrenme yolu uygulamasıdır. Öğrenci sınıfını ve dersini seçer, üniteler arasında ilerler, kısa konu anlatımı slaytlarını tamamlar ve quiz sonucuna göre ilerleme kazanır.
+Keççi, 1-12. sınıf öğrencileri için mobil öncelikli bir öğrenme yolu uygulamasıdır. Öğrenci sınıfını ve dersini seçer, üniteler arasında ilerler, kısa konu anlatımı slaytlarını tamamlar ve quiz sonucuna göre ilerleme kazanır.
 
 ## Özellikler
 
-- E-posta/şifre ile kullanıcı kaydı ve giriş
+- E-posta doğrulama bağlantısı veya SMS kodu ile giriş
+- Kayıt sırasında telefon numarası ve 8+ karakter şifre belirleme
+- Kayıt sırasında e-posta doğrulama bağlantısı
+- Şifremi unuttum ve şifre yenileme akışı
+- Supabase Phone provider açıkken SMS OTP denemesi
 - Supabase ile bulut ilerleme senkronizasyonu
 - 1-12. sınıf seçimi
 - Sınıfa göre uygun ders listesi
@@ -58,8 +62,22 @@ VITE_SUPABASE_ANON_KEY=your-supabase-anon-key
 
 4. Supabase SQL Editor'da [supabase/schema.sql](./supabase/schema.sql) dosyasındaki SQL'i çalıştır.
 5. Authentication > Providers bölümünde Email provider'ın açık olduğundan emin ol.
+6. Kayıt sırasında e-posta doğrulama istiyorsan Authentication > Sign In / Providers bölümünde email confirmation ayarını açık tut.
+7. SMS OTP kullanmak istiyorsan Supabase Phone provider ve SMS sağlayıcı ayarlarını ayrıca etkinleştir. Uygulama Türkiye numaralarını ülke kodu yazdırmadan `5551112233` formatında alır ve Supabase'e `+905551112233` olarak gönderir.
 
-Bu kurulumdan sonra kullanıcılar e-posta/şifre ile kayıt olabilir. Kullanıcı profili `profiles`, ilerleme bilgileri `user_progress` tablosunda saklanır.
+Bu kurulumdan sonra kullanıcılar e-posta, telefon ve şifre ile kayıt olabilir; girişte e-posta doğrulama bağlantısı veya kayıtlı telefon numarasına gelen SMS kodu kullanılır. Kullanıcı profili `profiles`, ilerleme bilgileri `user_progress` tablosunda saklanır.
+
+## Admin Panel
+
+Admin paneli sadece `profiles.is_admin = true` olan kullanıcılarda görünür. İlk admin hesabını Supabase SQL Editor'da şu sorguyla yetkilendirebilirsin:
+
+```sql
+update public.profiles
+set is_admin = true
+where email = 'senin-epostan@example.com';
+```
+
+Admin panelden ünite, slayt ve soru eklenebilir veya aynı `id` ile mevcut içerik güncellenebilir. Supabase içerikleri öğrenci ekranlarında statik örnek içeriklerin üzerine yazılır; yeni `id` ile eklenen kayıtlar ek içerik olarak görünür.
 
 ## Yayına Hazırlık
 
