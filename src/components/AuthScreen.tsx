@@ -1,4 +1,4 @@
-﻿import { FormEvent, ReactNode, useEffect, useState } from 'react';
+import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { Eye, EyeOff, KeyRound, LockKeyhole, Mail, Phone, User } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
@@ -26,7 +26,7 @@ interface AuthScreenProps {
 }
 
 const inputShellClass =
-  'relative flex h-[78px] items-center rounded-[18px] border border-[#c2c9bb] bg-[#f7f5f5] px-5 transition-all focus-within:border-[#3e6a00] focus-within:ring-2 focus-within:ring-[#b9f474] sm:h-[104px] sm:rounded-[20px] sm:px-8';
+  'relative flex h-[72px] items-center rounded-[18px] border border-[#dfd3c7] bg-[#fbfaf8] px-5 transition-all focus-within:border-[#7a3a18] focus-within:ring-2 focus-within:ring-[#f0c879] sm:h-[92px] sm:rounded-[20px] sm:px-7';
 
 function isValidPassword(password: string): boolean {
   return password.length >= 8;
@@ -54,6 +54,7 @@ export default function AuthScreen({
   const [verificationIdentifier, setVerificationIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [passwordConfirm, setPasswordConfirm] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
   const [smsCode, setSmsCode] = useState('');
@@ -133,8 +134,13 @@ export default function AuthScreen({
     }
 
     if (activeMode === 'recovery') {
+      if (password !== passwordConfirm) {
+        setFormError('Şifreler aynı olmalı.');
+        return;
+      }
       await onUpdatePassword(password);
       setPassword('');
+      setPasswordConfirm('');
       return;
     }
 
@@ -191,7 +197,7 @@ export default function AuthScreen({
 
           {activeMode === 'verify' && (
             <>
-              <p className="-mt-3 rounded-[18px] bg-[#f7f5f5] px-5 py-4 text-[14px] font-semibold leading-6 text-[#42493e]">
+              <p className="-mt-3 rounded-[18px] bg-[#fbfaf8] px-5 py-4 text-[14px] font-semibold leading-6 text-[#5a4538]">
                 Kod {verificationType === 'email' ? 'e-posta adresine' : 'telefonuna'} gönderildi. Lütfen gelen kodu
                 aşağıya yaz.
               </p>
@@ -250,14 +256,26 @@ export default function AuthScreen({
           )}
 
           {activeMode === 'recovery' && (
-            <PasswordInput
-              value={password}
-              onChange={setPassword}
-              visible={showPassword}
-              onToggle={() => setShowPassword(current => !current)}
-              placeholder="En az 8 karakter"
-              autoComplete="new-password"
-            />
+            <>
+              <PasswordInput
+                label="Yeni Şifre"
+                value={password}
+                onChange={setPassword}
+                visible={showPassword}
+                onToggle={() => setShowPassword(current => !current)}
+                placeholder="En az 8 karakter"
+                autoComplete="new-password"
+              />
+              <PasswordInput
+                label="Yeni Şifre Tekrar"
+                value={passwordConfirm}
+                onChange={setPasswordConfirm}
+                visible={showPassword}
+                onToggle={() => setShowPassword(current => !current)}
+                placeholder="Yeni şifreni tekrar yaz"
+                autoComplete="new-password"
+              />
+            </>
           )}
 
           {(formError || error) && (
@@ -266,7 +284,7 @@ export default function AuthScreen({
             </p>
           )}
           {notice && (
-            <p className="-mt-2 rounded-[18px] bg-[#b9f474]/40 px-5 py-4 text-[15px] font-bold leading-6 text-[#154212]">
+            <p className="-mt-2 rounded-[18px] bg-[#f7e5bc] px-5 py-4 text-[15px] font-bold leading-6 text-[#7a3a18]">
               {notice}
             </p>
           )}
@@ -294,7 +312,7 @@ export default function AuthScreen({
               <button
                 type="button"
                 onClick={() => setMode('forgot')}
-                className="text-[12px] font-extrabold uppercase text-[#3e6a00] sm:text-[17px]"
+                className="text-[12px] font-extrabold uppercase text-[#7a3a18] sm:text-[17px]"
               >
                 Şifremi Unuttum
               </button>
@@ -309,7 +327,7 @@ export default function AuthScreen({
                 setSmsCode('');
                 onClearPendingVerification();
               }}
-              className="-mt-3 self-start text-[12px] font-extrabold uppercase text-[#3e6a00] sm:text-[17px]"
+              className="-mt-3 self-start text-[12px] font-extrabold uppercase text-[#7a3a18] sm:text-[17px]"
             >
               Giriş ekranına dön
             </button>
@@ -318,7 +336,7 @@ export default function AuthScreen({
           <button
             type="submit"
             disabled={loading}
-            className="flex h-12 w-full items-center justify-center rounded-full bg-[#20a7f3] px-5 text-[14px] font-extrabold text-white shadow-sm transition-all hover:bg-[#1597df] active:scale-[0.99] disabled:opacity-60 sm:h-14 sm:text-[15px]"
+            className="flex h-12 w-full items-center justify-center rounded-full bg-[#7a3a18] px-5 text-[14px] font-extrabold text-white shadow-sm shadow-[#7a3a18]/20 transition-all hover:bg-[#623016] active:scale-[0.99] disabled:opacity-60 sm:h-14 sm:text-[15px]"
           >
             {buttonLabel(activeMode, loading)}
           </button>
@@ -327,7 +345,7 @@ export default function AuthScreen({
             <button
               type="button"
               onClick={() => setMode('login')}
-              className="text-[18px] font-bold text-[#3e6a00]"
+              className="text-[18px] font-bold text-[#7a3a18]"
             >
               Giriş ekranına dön
             </button>
@@ -336,12 +354,12 @@ export default function AuthScreen({
       </section>
 
       {!passwordRecovery && activeMode !== 'forgot' && activeMode !== 'verify' && (
-        <footer className="mt-10 text-center text-[20px] leading-7 text-[#42493e] sm:mt-16 sm:text-[28px] sm:leading-9">
+        <footer className="mt-10 text-center text-[20px] leading-7 text-[#5a4538] sm:mt-16 sm:text-[28px] sm:leading-9">
           {activeMode === 'login' ? 'Hesabın yok mu? ' : 'Zaten hesabın var mı? '}
           <button
             type="button"
             onClick={() => setMode(activeMode === 'login' ? 'register' : 'login')}
-            className="font-extrabold text-[#3e6a00]"
+            className="font-extrabold text-[#7a3a18]"
           >
             {activeMode === 'login' ? 'Kayıt Ol' : 'Giriş Yap'}
           </button>
@@ -354,7 +372,7 @@ export default function AuthScreen({
 function AuthLayout({ children }: { children: ReactNode }) {
   return (
       <div
-      className="relative min-h-screen overflow-hidden bg-white px-5 py-8 text-[#1b1c1c] safe-bottom sm:px-9 sm:py-14"
+      className="relative min-h-screen overflow-hidden bg-white px-5 py-8 text-[#2f1d14] safe-bottom sm:px-9 sm:py-14"
       style={{ fontFamily: '"Quicksand", "Nunito", system-ui, sans-serif' }}
     >
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[632px] flex-col justify-center sm:min-h-[calc(100vh-7rem)]">
@@ -394,13 +412,13 @@ function IconInput({
 }) {
   return (
     <label className="flex flex-col gap-3 sm:gap-5">
-      <span className="px-2 text-[15px] font-extrabold uppercase text-[#154212] sm:text-[22px]">{label}</span>
+      <span className="px-2 text-[14px] font-extrabold uppercase text-[#7a3a18] sm:text-[19px]">{label}</span>
       <span className={inputShellClass}>
-        <span className="mr-4 text-[#72796e] sm:mr-7">{icon}</span>
+        <span className="mr-4 text-[#8b7564] sm:mr-6">{icon}</span>
         <input
           value={value}
           onChange={event => onChange(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-[18px] leading-7 text-[#1b1c1c] outline-none placeholder:text-[#747b8a] sm:text-[28px] sm:leading-9"
+          className="min-w-0 flex-1 bg-transparent text-[17px] leading-7 text-[#2f1d14] outline-none placeholder:text-[#8f8176] sm:text-[24px] sm:leading-8"
           placeholder={placeholder}
           type={type}
           autoComplete={autoComplete}
@@ -415,16 +433,16 @@ function IconInput({
 function PhoneInput({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   return (
     <label className="flex flex-col gap-3 sm:gap-5">
-      <span className="px-2 text-[15px] font-extrabold uppercase text-[#154212] sm:text-[22px]">Telefon Numarası</span>
+      <span className="px-2 text-[14px] font-extrabold uppercase text-[#7a3a18] sm:text-[19px]">Telefon Numarası</span>
       <span className={inputShellClass}>
-        <span className="mr-3 flex items-center gap-2 text-[18px] font-extrabold text-[#42493e] sm:mr-5 sm:gap-4 sm:text-[24px]">
-          <Phone className="h-6 w-6 text-[#72796e] sm:h-9 sm:w-9" />
+        <span className="mr-3 flex items-center gap-2 text-[17px] font-extrabold text-[#5a4538] sm:mr-5 sm:gap-4 sm:text-[22px]">
+          <Phone className="h-6 w-6 text-[#8b7564] sm:h-8 sm:w-8" />
           +90
         </span>
         <input
           value={value}
           onChange={event => onChange(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-[18px] leading-7 text-[#1b1c1c] outline-none placeholder:text-[#747b8a] sm:text-[28px] sm:leading-9"
+          className="min-w-0 flex-1 bg-transparent text-[17px] leading-7 text-[#2f1d14] outline-none placeholder:text-[#8f8176] sm:text-[24px] sm:leading-8"
           placeholder="5551112233"
           type="tel"
           inputMode="numeric"
@@ -443,6 +461,7 @@ function PasswordInput({
   onToggle,
   placeholder,
   autoComplete,
+  label = 'Şifre',
   required = true,
 }: {
   value: string;
@@ -451,17 +470,18 @@ function PasswordInput({
   onToggle: () => void;
   placeholder: string;
   autoComplete: string;
+  label?: string;
   required?: boolean;
 }) {
   return (
     <label className="flex flex-col gap-3 sm:gap-5">
-      <span className="px-2 text-[15px] font-extrabold uppercase text-[#154212] sm:text-[22px]">Şifre</span>
+      <span className="px-2 text-[14px] font-extrabold uppercase text-[#7a3a18] sm:text-[19px]">{label}</span>
       <span className={inputShellClass}>
-        <LockKeyhole className="mr-4 h-6 w-6 text-[#72796e] sm:mr-7 sm:h-9 sm:w-9" />
+        <LockKeyhole className="mr-4 h-6 w-6 text-[#8b7564] sm:mr-6 sm:h-8 sm:w-8" />
         <input
           value={value}
           onChange={event => onChange(event.target.value)}
-          className="min-w-0 flex-1 bg-transparent text-[18px] leading-7 text-[#1b1c1c] outline-none placeholder:text-[#747b8a] sm:text-[28px] sm:leading-9"
+          className="min-w-0 flex-1 bg-transparent text-[17px] leading-7 text-[#2f1d14] outline-none placeholder:text-[#8f8176] sm:text-[24px] sm:leading-8"
           placeholder={placeholder}
           type={visible ? 'text' : 'password'}
           autoComplete={autoComplete}
@@ -471,7 +491,7 @@ function PasswordInput({
         <button
           type="button"
           onClick={onToggle}
-          className="ml-4 text-[#42493e] sm:ml-6"
+          className="ml-4 text-[#5a4538] sm:ml-6"
           aria-label={visible ? 'Şifreyi gizle' : 'Şifreyi göster'}
         >
           {visible ? <EyeOff className="h-6 w-6 sm:h-9 sm:w-9" /> : <Eye className="h-6 w-6 sm:h-9 sm:w-9" />}

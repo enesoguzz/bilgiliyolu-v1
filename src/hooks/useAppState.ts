@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Session, User } from '@supabase/supabase-js';
 import { GradeLevel, UserProgress } from '@/types/curriculum';
 import { isSupabaseConfigured, supabase } from '@/lib/supabase';
@@ -98,8 +98,68 @@ function cleanRedirectUrl(url: string | undefined): string | null {
 }
 
 function getAuthRedirectUrl(): string {
+  if (typeof window !== 'undefined') {
+    const { hostname, origin } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') return origin;
+  }
+
   if (AUTH_REDIRECT_URL) return AUTH_REDIRECT_URL;
   return window.location.origin;
+}
+
+function isPasswordRecoveryUrl(): boolean {
+  if (typeof window === 'undefined') return false;
+
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const searchParams = new URLSearchParams(window.location.search);
+
+  return hashParams.get('type') === 'recovery' || searchParams.get('type') === 'recovery';
+}
+
+function translateAuthError(message: string): string {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes('invalid login credentials')) {
+    return 'E-posta, telefon numarası veya şifre hatalı.';
+  }
+
+  if (normalized.includes('email not confirmed')) {
+    return 'E-posta adresin henüz doğrulanmamış. Lütfen gelen kutunu kontrol et.';
+  }
+
+  if (normalized.includes('user not found') || normalized.includes('signup disabled')) {
+    return 'Bu bilgilerle kayıtlı bir hesap bulunamadı.';
+  }
+
+  if (normalized.includes('user already registered') || normalized.includes('already registered')) {
+    return 'Bu e-posta adresiyle daha önce hesap oluşturulmuş.';
+  }
+
+  if (normalized.includes('otp') || normalized.includes('token') || normalized.includes('expired')) {
+    return 'Doğrulama kodu geçersiz veya süresi dolmuş. Lütfen yeni kod iste.';
+  }
+
+  if (normalized.includes('password')) {
+    return 'Şifre en az 8 karakter olmalı.';
+  }
+
+  if (normalized.includes('phone')) {
+    return 'Telefon numarası geçersiz. Lütfen 5 ile başlayan 10 haneli numaranı yaz.';
+  }
+
+  if (normalized.includes('rate limit') || normalized.includes('too many')) {
+    return 'Çok fazla deneme yapıldı. Lütfen birkaç dakika sonra tekrar dene.';
+  }
+
+  if (normalized.includes('provider is not enabled') || normalized.includes('unsupported provider')) {
+    return 'Bu giriş yöntemi henüz aktif değil. Lütfen e-posta veya telefonla giriş yap.';
+  }
+
+  if (normalized.includes('network') || normalized.includes('fetch')) {
+    return 'Bağlantı kurulamadı. İnternetini kontrol edip tekrar dene.';
+  }
+
+  return 'İşlem tamamlanamadı. Lütfen bilgilerini kontrol edip tekrar dene.';
 }
 
 export function useAppState() {
@@ -150,8 +210,20 @@ export function useAppState() {
 
     let active = true;
 
+    const openedFromPasswordRecovery = isPasswordRecoveryUrl();
+
+    if (openedFromPasswordRecovery) {
+      setPasswordRecovery(true);
+      setPendingVerification(null);
+      setAuthNotice('Yeni şifreni belirleyebilirsin.');
+    }
+
     supabase.auth.getSession().then(({ data }) => {
       if (!active) return;
+      if (openedFromPasswordRecovery && data.session) {
+        setPasswordRecovery(true);
+        setPendingVerification(null);
+      }
       setSession(data.session);
       setAuthLoading(false);
     });
@@ -162,6 +234,8 @@ export function useAppState() {
 
       if (event === 'PASSWORD_RECOVERY') {
         setPasswordRecovery(true);
+        setPendingVerification(null);
+        setAuthGateActive(false);
         setAuthNotice('Yeni şifreni belirleyebilirsin.');
       }
 
@@ -179,7 +253,7 @@ export function useAppState() {
   }, []);
 
   useEffect(() => {
-    if (!supabase || !currentUserId) return;
+    if (!supabase || !currentUserId || passwordRecovery) return;
 
     let active = true;
 
@@ -212,13 +286,13 @@ export function useAppState() {
       if (!active) return;
 
       if (error) {
-        setAuthError(error.message);
+        setAuthError(translateAuthError(error.message));
         setProgressLoading(false);
         return;
       }
 
       if (profileError) {
-        setAuthError(profileError.message);
+        setAuthError(translateAuthError(profileError.message));
       } else {
         setIsAdmin(Boolean((profileData as ProfileRow | null)?.is_admin));
       }
@@ -256,7 +330,7 @@ export function useAppState() {
     return () => {
       active = false;
     };
-  }, [currentUserDisplayName, currentUserEmail, currentUserId]);
+  }, [currentUserDisplayName, currentUserEmail, currentUserId, passwordRecovery]);
 
   useEffect(() => {
     if (!supabase || !currentUserId || !remoteReady) return;
@@ -274,7 +348,7 @@ export function useAppState() {
           current_unit: progress.currentUnit,
         })
         .then(({ error }) => {
-          if (error) setAuthError(error.message);
+          if (error) setAuthError(translateAuthError(error.message));
         });
 
       supabase
@@ -282,7 +356,7 @@ export function useAppState() {
         .update({ grade_id: progress.gradeId })
         .eq('id', currentUserId)
         .then(({ error }) => {
-          if (error) setAuthError(error.message);
+          if (error) setAuthError(translateAuthError(error.message));
         });
     }, 500);
 
@@ -305,7 +379,7 @@ export function useAppState() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
       setAuthLoading(false);
       return false;
     } else {
@@ -343,7 +417,7 @@ export function useAppState() {
     );
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
       setAuthLoading(false);
       setAuthGateActive(false);
       return { ok: false };
@@ -363,7 +437,7 @@ export function useAppState() {
       });
 
       if (otpError) {
-        setAuthError(otpError.message);
+        setAuthError(translateAuthError(otpError.message));
         setAuthLoading(false);
         setAuthGateActive(false);
         return { ok: false };
@@ -378,7 +452,7 @@ export function useAppState() {
     const { error: otpError } = await supabase.auth.signInWithOtp({ phone: normalizedPhone! });
 
     if (otpError) {
-      setAuthError(otpError.message);
+      setAuthError(translateAuthError(otpError.message));
       setAuthLoading(false);
       setAuthGateActive(false);
       return { ok: false };
@@ -421,7 +495,7 @@ export function useAppState() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
     } else if (!data.session) {
       setAuthNotice('Kayıt alındı. E-posta doğrulama bağlantısı için gelen kutunu kontrol et.');
     } else {
@@ -443,7 +517,7 @@ export function useAppState() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
     } else {
       setAuthNotice('Şifre sıfırlama bağlantısı e-posta adresine gönderildi.');
     }
@@ -461,10 +535,14 @@ export function useAppState() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
     } else {
+      await supabase.auth.signOut({ scope: 'local' });
+      setSession(null);
       setPasswordRecovery(false);
-      setAuthNotice('Şifren güncellendi.');
+      setPendingVerification(null);
+      setAuthGateActive(false);
+      setAuthNotice('Şifren güncellendi. Yeni şifrenle giriş yapabilirsin.');
     }
 
     setAuthLoading(false);
@@ -490,7 +568,7 @@ export function useAppState() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
     } else {
       setAuthNotice('SMS doğrulama kodu gönderildi.');
     }
@@ -519,7 +597,7 @@ export function useAppState() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
     } else {
       setAuthGateActive(false);
       setPendingVerification(null);
@@ -544,7 +622,7 @@ export function useAppState() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
     } else {
       setAuthGateActive(false);
       setPendingVerification(null);
@@ -569,7 +647,7 @@ export function useAppState() {
     });
 
     if (error) {
-      setAuthError(error.message);
+      setAuthError(translateAuthError(error.message));
       setAuthLoading(false);
     }
   }, []);
@@ -690,7 +768,7 @@ export function useAppState() {
     pendingVerification,
     passwordRecovery,
     isAdmin,
-    isAuthenticated: Boolean(currentUser) && !authGateActive,
+    isAuthenticated: Boolean(currentUser) && !authGateActive && !passwordRecovery && !pendingVerification,
     userEmail: currentUserEmail,
     signIn,
     signInWithPassword,
@@ -728,5 +806,6 @@ function normalizeTurkishPhone(phone: string): string | null {
 
   return null;
 }
+
 
 
