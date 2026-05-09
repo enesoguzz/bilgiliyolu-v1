@@ -33,6 +33,12 @@ type ProfileRow = {
   is_admin: boolean | null;
 };
 
+type VerificationStartResult = {
+  ok: boolean;
+  type?: 'email' | 'sms';
+  identifier?: string;
+};
+
 const STORAGE_KEY = 'bilgi-yolu-progress';
 const AUTH_REDIRECT_URL = cleanRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined);
 
@@ -270,8 +276,8 @@ export function useAppState() {
     return () => window.clearTimeout(timer);
   }, [state.progress, currentUserId, remoteReady]);
 
-  const signIn = useCallback(async (email: string) => {
-    if (!supabase) return;
+  const signIn = useCallback(async (email: string): Promise<boolean> => {
+    if (!supabase) return false;
 
     setAuthLoading(true);
     setAuthError(null);
@@ -281,19 +287,26 @@ export function useAppState() {
       email,
       options: {
         emailRedirectTo: getAuthRedirectUrl(),
+        shouldCreateUser: false,
       },
     });
 
     if (error) {
       setAuthError(error.message);
+      setAuthLoading(false);
+      return false;
     } else {
       setAuthNotice('Giriş bağlantısı e-posta adresine gönderildi.');
     }
     setAuthLoading(false);
+    return true;
   }, []);
 
-  const signInWithPassword = useCallback(async (identifier: string, password: string) => {
-    if (!supabase) return;
+  const beginPasswordVerification = useCallback(async (
+    identifier: string,
+    password: string,
+  ): Promise<VerificationStartResult> => {
+    if (!supabase) return { ok: false };
 
     setAuthLoading(true);
     setAuthError(null);
@@ -305,7 +318,7 @@ export function useAppState() {
     if (!trimmedIdentifier.includes('@') && !normalizedPhone) {
       setAuthError('Telefon numarası 5 ile başlayan 10 haneli formatta olmalı.');
       setAuthLoading(false);
-      return;
+      return { ok: false };
     }
 
     const { error } = await supabase.auth.signInWithPassword(
@@ -316,10 +329,50 @@ export function useAppState() {
 
     if (error) {
       setAuthError(error.message);
+      setAuthLoading(false);
+      return { ok: false };
     }
 
+    await supabase.auth.signOut({ scope: 'local' });
+    setSession(null);
+    setRemoteReady(false);
+
+    if (trimmedIdentifier.includes('@')) {
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: trimmedIdentifier,
+        options: {
+          emailRedirectTo: getAuthRedirectUrl(),
+          shouldCreateUser: false,
+        },
+      });
+
+      if (otpError) {
+        setAuthError(otpError.message);
+        setAuthLoading(false);
+        return { ok: false };
+      }
+
+      setAuthNotice('DoÄŸrulama kodu e-posta adresine gÃ¶nderildi.');
+      setAuthLoading(false);
+      return { ok: true, type: 'email', identifier: trimmedIdentifier };
+    }
+
+    const { error: otpError } = await supabase.auth.signInWithOtp({ phone: normalizedPhone! });
+
+    if (otpError) {
+      setAuthError(otpError.message);
+      setAuthLoading(false);
+      return { ok: false };
+    }
+
+    setAuthNotice('DoÄŸrulama kodu telefonuna gÃ¶nderildi.');
     setAuthLoading(false);
+    return { ok: true, type: 'sms', identifier: trimmedIdentifier };
   }, []);
+
+  const signInWithPassword = useCallback(async (identifier: string, password: string) => {
+    await beginPasswordVerification(identifier, password);
+  }, [beginPasswordVerification]);
 
   const signUp = useCallback(async (email: string, password: string, displayName: string, phone?: string) => {
     if (!supabase) return;
@@ -411,7 +464,10 @@ export function useAppState() {
       return;
     }
 
-    const { error } = await supabase.auth.signInWithOtp({ phone: normalizedPhone });
+    const { error } = await supabase.auth.signInWithOtp({
+      phone: normalizedPhone,
+      options: { shouldCreateUser: false },
+    });
 
     if (error) {
       setAuthError(error.message);
@@ -446,6 +502,28 @@ export function useAppState() {
       setAuthError(error.message);
     } else {
       setAuthNotice('Telefon doğrulandı.');
+    }
+
+    setAuthLoading(false);
+  }, []);
+
+  const verifyEmailOtp = useCallback(async (email: string, token: string) => {
+    if (!supabase) return;
+
+    setAuthLoading(true);
+    setAuthError(null);
+    setAuthNotice(null);
+
+    const { error } = await supabase.auth.verifyOtp({
+      email,
+      token,
+      type: 'email',
+    });
+
+    if (error) {
+      setAuthError(error.message);
+    } else {
+      setAuthNotice('E-posta doÄŸrulandÄ±.');
     }
 
     setAuthLoading(false);
@@ -582,11 +660,13 @@ export function useAppState() {
     userEmail: currentUserEmail,
     signIn,
     signInWithPassword,
+    beginPasswordVerification,
     signUp,
     resetPassword,
     updatePassword,
     sendPhoneOtp,
     verifyPhoneOtp,
+    verifyEmailOtp,
     signInWithOAuth,
     signOut,
     selectLevel,

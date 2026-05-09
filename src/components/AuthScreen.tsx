@@ -2,20 +2,24 @@
 import { Eye, EyeOff, KeyRound, LockKeyhole, Mail, Phone, User } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
-type AuthMode = 'login' | 'register' | 'forgot' | 'recovery';
+type AuthMode = 'login' | 'register' | 'forgot' | 'recovery' | 'verify';
+type VerificationType = 'email' | 'sms';
 
 interface AuthScreenProps {
   loading: boolean;
   error: string | null;
   notice: string | null;
   passwordRecovery: boolean;
-  onSignIn: (email: string) => Promise<void>;
-  onPasswordSignIn: (identifier: string, password: string) => Promise<void>;
+  onBeginPasswordVerification: (
+    identifier: string,
+    password: string,
+  ) => Promise<{ ok: boolean; type?: VerificationType; identifier?: string }>;
   onSignUp: (email: string, password: string, displayName: string, phone?: string) => Promise<void>;
   onResetPassword: (email: string) => Promise<void>;
   onUpdatePassword: (password: string) => Promise<void>;
   onSendPhoneOtp: (phone: string) => Promise<void>;
   onVerifyPhoneOtp: (phone: string, token: string) => Promise<void>;
+  onVerifyEmailOtp: (email: string, token: string) => Promise<void>;
   onOAuthSignIn: (provider: 'google' | 'apple') => Promise<void>;
 }
 
@@ -31,18 +35,19 @@ export default function AuthScreen({
   error,
   notice,
   passwordRecovery,
-  onSignIn,
-  onPasswordSignIn,
+  onBeginPasswordVerification,
   onSignUp,
   onResetPassword,
   onUpdatePassword,
   onSendPhoneOtp,
   onVerifyPhoneOtp,
+  onVerifyEmailOtp,
   onOAuthSignIn,
 }: AuthScreenProps) {
   const [mode, setMode] = useState<AuthMode>(passwordRecovery ? 'recovery' : 'login');
   const [loginIdentifier, setLoginIdentifier] = useState('');
-  const [usePasswordLogin, setUsePasswordLogin] = useState(false);
+  const [verificationType, setVerificationType] = useState<VerificationType>('email');
+  const [verificationIdentifier, setVerificationIdentifier] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -59,7 +64,9 @@ export default function AuthScreen({
         ? 'Şifremi Unuttum'
         : activeMode === 'recovery'
           ? 'Yeni Şifre'
-          : 'Giriş Yap';
+          : activeMode === 'verify'
+            ? 'Doğrulama Kodu'
+            : 'Giriş Yap';
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -67,32 +74,38 @@ export default function AuthScreen({
 
     if (activeMode === 'login') {
       const identifier = loginIdentifier.trim();
-      const isEmail = identifier.includes('@');
 
       if (!identifier) {
         setFormError('E-posta adresi ya da telefon numarası yazmalısın.');
         return;
       }
 
-      if (usePasswordLogin) {
-        if (!password) {
-          setFormError('Şifreni yazmalısın.');
-          return;
-        }
-        await onPasswordSignIn(identifier, password);
+      if (!password) {
+        setFormError('Şifreni yazmalısın.');
         return;
       }
 
-      if (!isEmail) {
-        if (smsCode.trim()) {
-          await onVerifyPhoneOtp(identifier, smsCode.trim());
-        } else {
-          await onSendPhoneOtp(identifier);
-        }
+      const result = await onBeginPasswordVerification(identifier, password);
+      if (result.ok && result.type && result.identifier) {
+        setVerificationType(result.type);
+        setVerificationIdentifier(result.identifier);
+        setSmsCode('');
+        setMode('verify');
+      }
+      return;
+    }
+
+    if (activeMode === 'verify') {
+      if (!smsCode.trim()) {
+        setFormError('Doğrulama kodunu yazmalısın.');
         return;
       }
 
-      await onSignIn(identifier);
+      if (verificationType === 'email') {
+        await onVerifyEmailOtp(verificationIdentifier, smsCode.trim());
+      } else {
+        await onVerifyPhoneOtp(verificationIdentifier, smsCode.trim());
+      }
       return;
     }
 
@@ -152,29 +165,25 @@ export default function AuthScreen({
                 type="text"
                 autoComplete="username"
               />
+              <PasswordInput
+                value={password}
+                onChange={setPassword}
+                visible={showPassword}
+                onToggle={() => setShowPassword(current => !current)}
+                placeholder="Şifre"
+                autoComplete="current-password"
+              />
             </>
           )}
 
-          {activeMode === 'login' && usePasswordLogin && (
-            <PasswordInput
-              value={password}
-              onChange={setPassword}
-              visible={showPassword}
-              onToggle={() => setShowPassword(current => !current)}
-              placeholder="Şifre"
-              autoComplete="current-password"
-            />
-          )}
-
-          {activeMode === 'login' && !usePasswordLogin && loginIdentifier.trim() && !loginIdentifier.includes('@') && (
+          {activeMode === 'verify' && (
             <IconInput
-              label="SMS Kodu"
+              label="Doğrulama Kodu"
               icon={<KeyRound className="h-6 w-6 sm:h-9 sm:w-9" />}
               value={smsCode}
               onChange={setSmsCode}
-              placeholder="Kod geldikten sonra yaz"
+              placeholder="6 haneli kod"
               inputMode="numeric"
-              required={false}
             />
           )}
 
@@ -262,17 +271,7 @@ export default function AuthScreen({
           )}
 
           {!passwordRecovery && activeMode === 'login' && (
-            <div className="-mt-3 flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={() => {
-                  setUsePasswordLogin(current => !current);
-                  setSmsCode('');
-                }}
-                className="text-[12px] font-extrabold uppercase text-[#3e6a00] sm:text-[17px]"
-              >
-                {usePasswordLogin ? 'Kod ile giriş' : 'Şifre ile giriş'}
-              </button>
+            <div className="-mt-3 flex items-center justify-end gap-4">
               <button
                 type="button"
                 onClick={() => setMode('forgot')}
@@ -283,12 +282,25 @@ export default function AuthScreen({
             </div>
           )}
 
+          {activeMode === 'verify' && (
+            <button
+              type="button"
+              onClick={() => {
+                setMode('login');
+                setSmsCode('');
+              }}
+              className="-mt-3 self-start text-[12px] font-extrabold uppercase text-[#3e6a00] sm:text-[17px]"
+            >
+              Giriş ekranına dön
+            </button>
+          )}
+
           <button
             type="submit"
             disabled={loading}
             className="flex h-12 w-full items-center justify-center rounded-full bg-[#20a7f3] px-5 text-[14px] font-extrabold text-white shadow-sm transition-all hover:bg-[#1597df] active:scale-[0.99] disabled:opacity-60 sm:h-14 sm:text-[15px]"
           >
-            {buttonLabel(activeMode, loginIdentifier, smsCode, loading, usePasswordLogin)}
+            {buttonLabel(activeMode, loading)}
           </button>
 
           {activeMode === 'forgot' && (
@@ -303,7 +315,7 @@ export default function AuthScreen({
         </form>
       </section>
 
-      {!passwordRecovery && activeMode !== 'forgot' && (
+      {!passwordRecovery && activeMode !== 'forgot' && activeMode !== 'verify' && (
         <footer className="mt-10 text-center text-[20px] leading-7 text-[#42493e] sm:mt-16 sm:text-[28px] sm:leading-9">
           {activeMode === 'login' ? 'Hesabın yok mu? ' : 'Zaten hesabın var mı? '}
           <button
@@ -501,19 +513,12 @@ function AppleMark() {
   );
 }
 
-function buttonLabel(
-  activeMode: AuthMode,
-  loginIdentifier: string,
-  smsCode: string,
-  loading: boolean,
-  usePasswordLogin: boolean,
-): string {
+function buttonLabel(activeMode: AuthMode, loading: boolean): string {
   if (loading) return 'İşleniyor...';
   if (activeMode === 'register') return 'Hesap oluştur';
   if (activeMode === 'forgot') return 'Gönder';
   if (activeMode === 'recovery') return 'Kaydet';
-  if (usePasswordLogin) return 'Giriş Yap';
-  if (loginIdentifier.trim() && !loginIdentifier.includes('@')) return smsCode.trim() ? 'Doğrula' : 'Kod Gönder';
+  if (activeMode === 'verify') return 'Doğrula';
   return 'Giriş Yap';
 }
 

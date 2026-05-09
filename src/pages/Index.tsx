@@ -31,13 +31,13 @@ export default function Index() {
           error={app.authError}
           notice={app.authNotice}
           passwordRecovery={app.passwordRecovery}
-          onSignIn={app.signIn}
-          onPasswordSignIn={app.signInWithPassword}
+          onBeginPasswordVerification={app.beginPasswordVerification}
           onSignUp={app.signUp}
           onResetPassword={app.resetPassword}
           onUpdatePassword={app.updatePassword}
           onSendPhoneOtp={app.sendPhoneOtp}
           onVerifyPhoneOtp={app.verifyPhoneOtp}
+          onVerifyEmailOtp={app.verifyEmailOtp}
           onOAuthSignIn={app.signInWithOAuth}
         />
       </div>
