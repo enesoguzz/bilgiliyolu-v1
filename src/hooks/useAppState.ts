@@ -39,6 +39,11 @@ type VerificationStartResult = {
   identifier?: string;
 };
 
+export type PendingVerification = {
+  type: 'email' | 'sms';
+  identifier: string;
+} | null;
+
 const STORAGE_KEY = 'bilgi-yolu-progress';
 const AUTH_REDIRECT_URL = cleanRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined);
 
@@ -117,6 +122,7 @@ export function useAppState() {
   const [authError, setAuthError] = useState<string | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
   const [authGateActive, setAuthGateActive] = useState(false);
+  const [pendingVerification, setPendingVerification] = useState<PendingVerification>(null);
   const authGateActiveRef = useRef(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -364,6 +370,7 @@ export function useAppState() {
       }
 
       setAuthNotice('Doğrulama kodu e-posta adresine gönderildi.');
+      setPendingVerification({ type: 'email', identifier: trimmedIdentifier });
       setAuthLoading(false);
       return { ok: true, type: 'email', identifier: trimmedIdentifier };
     }
@@ -378,6 +385,7 @@ export function useAppState() {
     }
 
     setAuthNotice('Doğrulama kodu telefonuna gönderildi.');
+    setPendingVerification({ type: 'sms', identifier: trimmedIdentifier });
     setAuthLoading(false);
     return { ok: true, type: 'sms', identifier: trimmedIdentifier };
   }, []);
@@ -514,6 +522,7 @@ export function useAppState() {
       setAuthError(error.message);
     } else {
       setAuthGateActive(false);
+      setPendingVerification(null);
       setAuthNotice('Telefon doğrulandı.');
     }
 
@@ -538,6 +547,7 @@ export function useAppState() {
       setAuthError(error.message);
     } else {
       setAuthGateActive(false);
+      setPendingVerification(null);
       setAuthNotice('E-posta doğrulandı.');
     }
 
@@ -570,6 +580,14 @@ export function useAppState() {
     setSession(null);
     setRemoteReady(false);
     setIsAdmin(false);
+    setAuthGateActive(false);
+    setPendingVerification(null);
+  }, []);
+
+  const clearPendingVerification = useCallback(() => {
+    setPendingVerification(null);
+    setAuthGateActive(false);
+    setAuthNotice(null);
   }, []);
 
   const selectLevel = useCallback((level: GradeLevel) => {
@@ -669,6 +687,7 @@ export function useAppState() {
     progressLoading,
     authError,
     authNotice,
+    pendingVerification,
     passwordRecovery,
     isAdmin,
     isAuthenticated: Boolean(currentUser) && !authGateActive,
@@ -682,6 +701,7 @@ export function useAppState() {
     sendPhoneOtp,
     verifyPhoneOtp,
     verifyEmailOtp,
+    clearPendingVerification,
     signInWithOAuth,
     signOut,
     selectLevel,

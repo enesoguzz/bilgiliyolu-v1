@@ -15,7 +15,7 @@ export default function Index() {
   const app = useAppState();
   const content = useContentLibrary(app.isAuthenticated);
 
-  if (app.authLoading) {
+  if (app.authLoading && !app.pendingVerification) {
     return (
       <div className="max-w-md mx-auto min-h-screen bg-background flex items-center justify-center px-6">
         <p className="text-sm font-semibold text-muted-foreground">Hesap bilgileri yükleniyor...</p>
@@ -31,6 +31,7 @@ export default function Index() {
           error={app.authError}
           notice={app.authNotice}
           passwordRecovery={app.passwordRecovery}
+          pendingVerification={app.pendingVerification}
           onBeginPasswordVerification={app.beginPasswordVerification}
           onSignUp={app.signUp}
           onResetPassword={app.resetPassword}
@@ -38,6 +39,7 @@ export default function Index() {
           onSendPhoneOtp={app.sendPhoneOtp}
           onVerifyPhoneOtp={app.verifyPhoneOtp}
           onVerifyEmailOtp={app.verifyEmailOtp}
+          onClearPendingVerification={app.clearPendingVerification}
           onOAuthSignIn={app.signInWithOAuth}
         />
       </div>

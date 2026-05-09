@@ -1,4 +1,4 @@
-﻿import { FormEvent, ReactNode, useState } from 'react';
+﻿import { FormEvent, ReactNode, useEffect, useState } from 'react';
 import { Eye, EyeOff, KeyRound, LockKeyhole, Mail, Phone, User } from 'lucide-react';
 import { isSupabaseConfigured } from '@/lib/supabase';
 
@@ -10,6 +10,7 @@ interface AuthScreenProps {
   error: string | null;
   notice: string | null;
   passwordRecovery: boolean;
+  pendingVerification: { type: VerificationType; identifier: string } | null;
   onBeginPasswordVerification: (
     identifier: string,
     password: string,
@@ -20,6 +21,7 @@ interface AuthScreenProps {
   onSendPhoneOtp: (phone: string) => Promise<void>;
   onVerifyPhoneOtp: (phone: string, token: string) => Promise<void>;
   onVerifyEmailOtp: (email: string, token: string) => Promise<void>;
+  onClearPendingVerification: () => void;
   onOAuthSignIn: (provider: 'google' | 'apple') => Promise<void>;
 }
 
@@ -35,6 +37,7 @@ export default function AuthScreen({
   error,
   notice,
   passwordRecovery,
+  pendingVerification,
   onBeginPasswordVerification,
   onSignUp,
   onResetPassword,
@@ -42,6 +45,7 @@ export default function AuthScreen({
   onSendPhoneOtp,
   onVerifyPhoneOtp,
   onVerifyEmailOtp,
+  onClearPendingVerification,
   onOAuthSignIn,
 }: AuthScreenProps) {
   const [mode, setMode] = useState<AuthMode>(passwordRecovery ? 'recovery' : 'login');
@@ -57,6 +61,15 @@ export default function AuthScreen({
   const [showPassword, setShowPassword] = useState(false);
 
   const activeMode = passwordRecovery ? 'recovery' : mode;
+
+  useEffect(() => {
+    if (!pendingVerification) return;
+    setVerificationType(pendingVerification.type);
+    setVerificationIdentifier(pendingVerification.identifier);
+    setSmsCode('');
+    setMode('verify');
+  }, [pendingVerification]);
+
   const title =
     activeMode === 'register'
       ? 'Kayıt Ol'
@@ -294,6 +307,7 @@ export default function AuthScreen({
               onClick={() => {
                 setMode('login');
                 setSmsCode('');
+                onClearPendingVerification();
               }}
               className="-mt-3 self-start text-[12px] font-extrabold uppercase text-[#3e6a00] sm:text-[17px]"
             >
@@ -527,4 +541,5 @@ function buttonLabel(activeMode: AuthMode, loading: boolean): string {
   if (activeMode === 'verify') return 'Doğrula';
   return 'Giriş Yap';
 }
+
 
