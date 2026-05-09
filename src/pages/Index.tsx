@@ -30,8 +30,15 @@ export default function Index() {
           loading={app.authLoading}
           error={app.authError}
           notice={app.authNotice}
+          passwordRecovery={app.passwordRecovery}
           onSignIn={app.signIn}
+          onPasswordSignIn={app.signInWithPassword}
           onSignUp={app.signUp}
+          onResetPassword={app.resetPassword}
+          onUpdatePassword={app.updatePassword}
+          onSendPhoneOtp={app.sendPhoneOtp}
+          onVerifyPhoneOtp={app.verifyPhoneOtp}
+          onOAuthSignIn={app.signInWithOAuth}
         />
       </div>
     );
@@ -40,9 +47,12 @@ export default function Index() {
   return (
     <div className="max-w-md mx-auto min-h-screen bg-background">
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-4 py-3 flex items-center justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-muted-foreground">Bilgi Yolu</p>
-          <p className="text-xs text-foreground truncate max-w-52">{app.userEmail}</p>
+        <div className="min-w-0 flex items-center gap-2">
+          <img src="/kecci-logo.png" alt="Keççi logo" className="h-8 w-8 object-contain" />
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-muted-foreground">Keççi</p>
+            <p className="text-xs text-foreground truncate max-w-44">{app.userEmail}</p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           {app.isAdmin && (
