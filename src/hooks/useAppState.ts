@@ -34,6 +34,7 @@ type ProfileRow = {
 };
 
 const STORAGE_KEY = 'bilgi-yolu-progress';
+const AUTH_REDIRECT_URL = cleanRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined);
 
 const initialProgress: UserProgress = {
   gradeId: 0,
@@ -78,6 +79,16 @@ function screenForProgress(progress: UserProgress): AppScreen {
 
 function getUserEmail(user: User | null): string | null {
   return user?.email ?? null;
+}
+
+function cleanRedirectUrl(url: string | undefined): string | null {
+  const cleaned = (url ?? '').trim().replace(/\/+$/, '');
+  return cleaned || null;
+}
+
+function getAuthRedirectUrl(): string {
+  if (AUTH_REDIRECT_URL) return AUTH_REDIRECT_URL;
+  return window.location.origin;
 }
 
 export function useAppState() {
@@ -269,7 +280,7 @@ export function useAppState() {
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: getAuthRedirectUrl(),
       },
     });
 
@@ -329,7 +340,7 @@ export function useAppState() {
       password,
       phone: normalizedPhone ?? undefined,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: getAuthRedirectUrl(),
         data: {
           display_name: displayName.trim() || null,
         },
@@ -355,7 +366,7 @@ export function useAppState() {
     setAuthNotice(null);
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: window.location.origin,
+      redirectTo: getAuthRedirectUrl(),
     });
 
     if (error) {
@@ -450,7 +461,7 @@ export function useAppState() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: window.location.origin,
+        redirectTo: getAuthRedirectUrl(),
       },
     });
 
