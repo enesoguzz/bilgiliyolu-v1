@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ArrowRight, CheckCircle2, Timer, X } from 'lucide-react';
 import { getQuestionsForUnit } from '@/data/curriculum';
 import { Question } from '@/types/curriculum';
 
@@ -25,15 +26,14 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
 
   if (!q) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-6 safe-bottom">
-        <p className="text-sm text-muted-foreground text-center">Bu ünite için alıştırma hazırlanıyor.</p>
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 safe-bottom">
+        <p className="text-center text-sm text-muted-foreground">Bu ünite için alıştırma hazırlanıyor.</p>
       </div>
     );
   }
 
   const handleSelect = (index: number) => {
     if (showFeedback) return;
-
     setSelected(index);
     setShowFeedback(true);
   };
@@ -49,73 +49,100 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
       return;
     }
 
-    const score = Math.round((nextCorrect / questions.length) * 100);
-    onComplete(score);
+    onComplete(Math.round((nextCorrect / questions.length) * 100));
   };
 
   const isCorrect = selected === q.correctIndex;
 
   return (
-    <div className="min-h-screen bg-background flex flex-col safe-bottom">
-      <div className="px-4 pt-4 pb-2">
-        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
+    <div className="min-h-screen bg-background pb-28 safe-bottom">
+      <header className="sticky top-0 z-20 mx-auto flex h-16 max-w-md items-center justify-between border-b border-[#ead9cf] bg-white/95 px-5 backdrop-blur">
+        <div className="flex items-center gap-2">
+          <button className="flex h-8 w-8 items-center justify-center rounded-full text-primary" aria-label="Sınavı kapat">
+            <X className="h-5 w-5" />
+          </button>
+          <span className="text-[20px] font-extrabold text-primary">Keççi</span>
         </div>
-        <p className="text-xs text-muted-foreground mt-1 text-center">
-          Soru {current + 1} / {questions.length}
-        </p>
-      </div>
+        <div className="flex items-center gap-1.5 rounded-full bg-[#e6e2dc] px-3 py-1 text-[#5a4538]">
+          <Timer className="h-4 w-4" />
+          <span className="text-xs font-extrabold">12:45</span>
+        </div>
+      </header>
 
-      <div className="flex-1 flex flex-col px-4 py-6 max-w-sm mx-auto w-full">
-        <h2 className="text-lg font-bold text-foreground mb-6">{q.text}</h2>
+      <main className="mx-auto flex max-w-md flex-col gap-7 px-5 pt-5">
+        <section className="space-y-2">
+          <div className="flex items-end justify-between">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-primary">Soru {current + 1} / {questions.length}</span>
+            <span className="text-[11px] font-bold text-[#8b7564]">%{Math.round(progress)} Tamamlandı</span>
+          </div>
+          <div className="h-2.5 overflow-hidden rounded-full bg-[#e6e2dc]">
+            <div className="h-full rounded-full bg-[#f8bb73] transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+        </section>
 
-        <div className="space-y-3">
+        <section className="rounded-2xl border border-[#ead9cf] bg-white p-5 shadow-sm">
+          <h1 className="mb-4 text-[24px] font-extrabold leading-8 text-primary">Soru Zamanı</h1>
+          <p className="text-[16px] leading-7 text-[#2f1d14]">{q.text}</p>
+        </section>
+
+        <section className="flex flex-col gap-3">
           {q.options.map((option, index) => {
-            let optionClass = 'bg-card border-2 border-border';
-
-            if (showFeedback) {
-              if (index === q.correctIndex) optionClass = 'bg-primary/10 border-2 border-primary';
-              else if (index === selected) optionClass = 'bg-destructive/10 border-2 border-destructive';
-            } else if (index === selected) {
-              optionClass = 'bg-primary/10 border-2 border-primary';
-            }
+            const letter = String.fromCharCode(65 + index);
+            const isSelected = selected === index;
+            const isAnswer = index === q.correctIndex;
+            const stateClass = showFeedback
+              ? isAnswer
+                ? 'border-primary bg-primary/10'
+                : isSelected
+                  ? 'border-destructive bg-destructive/10'
+                  : 'border-[#ead9cf] bg-white'
+              : isSelected
+                ? 'border-primary bg-primary/10 ring-4 ring-primary/10'
+                : 'border-[#ead9cf] bg-white hover:bg-[#fdf9f3]';
 
             return (
               <button
-                key={option}
+                key={`${letter}-${option}`}
                 onClick={() => handleSelect(index)}
                 disabled={showFeedback}
-                className={`w-full text-left p-4 rounded-xl transition-all active:scale-[0.98] ${optionClass}`}
+                className={`flex items-center gap-4 rounded-2xl border p-4 text-left transition-all active:scale-[0.98] ${stateClass}`}
               >
-                <span className="text-sm font-semibold text-foreground">{option}</span>
+                <span
+                  className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${
+                    isSelected || (showFeedback && isAnswer) ? 'bg-primary text-white' : 'bg-[#e6e2dc] text-primary'
+                  }`}
+                >
+                  {letter}
+                </span>
+                <span className={`flex-1 text-[15px] leading-6 ${isSelected ? 'font-extrabold text-primary' : 'font-semibold text-[#5a4538]'}`}>
+                  {option}
+                </span>
+                {showFeedback && isAnswer && <CheckCircle2 className="h-5 w-5 text-primary" />}
               </button>
             );
           })}
-        </div>
+        </section>
 
         {showFeedback && (
-          <div className={`mt-6 p-4 rounded-xl ${isCorrect ? 'bg-primary/10' : 'bg-destructive/10'}`}>
-            <p className={`text-sm font-bold mb-1 ${isCorrect ? 'text-primary' : 'text-destructive'}`}>
-              {isCorrect ? '✓ Doğru!' : '✕ Yanlış'}
-            </p>
-            <p className="text-xs text-foreground/70">{q.explanation}</p>
-          </div>
+          <section className={`rounded-2xl p-4 ${isCorrect ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+            <p className="text-sm font-extrabold">{isCorrect ? 'Doğru!' : 'Yanlış'}</p>
+            <p className="mt-1 text-xs leading-5 text-[#5a4538]">{q.explanation}</p>
+          </section>
         )}
-      </div>
+      </main>
 
-      {showFeedback && (
-        <div className="px-4 pb-6">
-          <button
-            onClick={handleNext}
-            className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-2xl text-base active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
-          >
-            {current < questions.length - 1 ? 'Sonraki Soru' : 'Sonuçları Gör'}
-          </button>
-        </div>
-      )}
+      <footer className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-[#ead9cf] bg-white p-4">
+        <button
+          onClick={handleNext}
+          disabled={!showFeedback}
+          className={`flex h-12 w-full items-center justify-center gap-2 rounded-full text-[16px] font-extrabold transition-all ${
+            showFeedback ? 'bg-primary text-white shadow-md active:scale-95' : 'bg-[#e6e2dc] text-[#8b7564] opacity-60'
+          }`}
+        >
+          {current < questions.length - 1 ? 'Sonraki Soru' : 'Sonuçları Gör'}
+          <ArrowRight className="h-5 w-5" />
+        </button>
+      </footer>
     </div>
   );
 }

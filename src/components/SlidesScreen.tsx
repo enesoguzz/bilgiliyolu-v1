@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { ArrowLeft, ArrowRight, Lightbulb, MessageCircle } from 'lucide-react';
 import { getSlidesForUnit } from '@/data/curriculum';
 import { TopicSlide } from '@/types/curriculum';
 
@@ -17,8 +18,8 @@ export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete 
 
   if (!slide) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center px-6 safe-bottom">
-        <p className="text-sm text-muted-foreground text-center">Bu ünite için içerik hazırlanıyor.</p>
+      <div className="flex min-h-screen items-center justify-center bg-background px-6 safe-bottom">
+        <p className="text-center text-sm text-muted-foreground">Bu ünite için içerik hazırlanıyor.</p>
       </div>
     );
   }
@@ -31,40 +32,88 @@ export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete 
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background flex flex-col safe-bottom">
-      <div className="px-4 pt-4 pb-2">
-        <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <p className="text-xs text-muted-foreground mt-1 text-center">
-          {currentIndex + 1} / {slides.length}
-        </p>
-      </div>
+  const goBack = () => {
+    setCurrentIndex(index => Math.max(0, index - 1));
+  };
 
-      <div className="flex-1 flex flex-col justify-center px-6 py-8 max-w-sm mx-auto w-full">
-        <h2 className="text-xl font-extrabold text-foreground mb-4">{slide.title}</h2>
-        <p className="text-base text-foreground/80 leading-relaxed mb-6">{slide.content}</p>
+  return (
+    <div className="min-h-screen bg-background pb-40 safe-bottom">
+      <header className="sticky top-0 z-20 mx-auto flex h-16 max-w-md items-center justify-between border-b border-[#ead9cf] bg-white/95 px-5 backdrop-blur">
+        <div className="flex items-center gap-3">
+          <img src="/kecci-logo.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+          <div>
+            <p className="text-[20px] font-extrabold leading-none text-primary">Keççi</p>
+            <p className="text-[11px] font-bold uppercase tracking-wider text-[#8b7564]">Konu Anlatımı</p>
+          </div>
+        </div>
+        <span className="rounded-full bg-[#fdf9f3] px-3 py-1 text-xs font-extrabold text-primary">
+          {currentIndex + 1} / {slides.length}
+        </span>
+      </header>
+
+      <main className="mx-auto flex max-w-md flex-col gap-5 px-5 pt-5">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between px-1">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#8b7564]">Konu İlerlemesi</span>
+            <span className="text-[11px] font-extrabold text-primary">%{Math.round(progress)}</span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[#dfd3c7]">
+            <div className="h-full rounded-full bg-[#f8bb73] transition-all duration-500" style={{ width: `${progress}%` }} />
+          </div>
+        </div>
+
+        <section>
+          <h1 className="text-[26px] font-extrabold leading-8 text-primary">{slide.title}</h1>
+          <p className="mt-2 text-[15px] leading-6 text-[#5a4538]">Keççi ile adım adım öğren.</p>
+        </section>
+
+        <section className="relative overflow-hidden rounded-2xl border border-[#ead9cf] bg-white shadow-sm">
+          <div className="flex min-h-[210px] items-center justify-center bg-[#fdf9f3] p-5">
+            <div className="relative flex min-h-[170px] w-full flex-col justify-center rounded-xl border border-dashed border-[#dfd3c7] bg-white p-5">
+              <p className="text-[17px] leading-7 text-[#2f1d14]">{slide.content}</p>
+              <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#ffddb9]/40 blur-2xl" />
+              <div className="absolute -bottom-10 -left-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
+            </div>
+          </div>
+          <div className="absolute bottom-4 right-4 flex max-w-[78%] items-end gap-2">
+            <div className="rounded-2xl rounded-br-none border border-primary/40 bg-primary p-3 text-[11px] leading-4 text-white shadow-lg">
+              Bir sonraki adımda bunu küçük bir alıştırmayla pekiştireceğiz.
+            </div>
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-white">
+              <MessageCircle className="h-5 w-5 text-primary" />
+            </div>
+          </div>
+        </section>
 
         {slide.example && (
-          <div className="bg-primary/5 border border-primary/20 rounded-xl p-4">
-            <p className="text-xs font-bold text-primary mb-1">💡 Örnek</p>
-            <p className="text-sm text-foreground font-semibold whitespace-pre-line">{slide.example}</p>
-          </div>
+          <section className="rounded-2xl border border-[#e0d7d0] bg-[#fdf9f3] p-5">
+            <div className="mb-3 flex items-center gap-2 text-primary">
+              <Lightbulb className="h-5 w-5" />
+              <h2 className="text-[20px] font-bold">Unutma!</h2>
+            </div>
+            <p className="whitespace-pre-line text-[15px] font-semibold leading-6 text-[#5a4538]">{slide.example}</p>
+          </section>
         )}
-      </div>
 
-      <div className="px-4 pb-6">
-        <button
-          onClick={goNext}
-          className="w-full bg-primary text-primary-foreground font-bold py-4 rounded-2xl text-base active:scale-[0.98] transition-all shadow-lg shadow-primary/20"
-        >
-          {currentIndex < slides.length - 1 ? 'Devam Et' : 'Alıştırmaya Geç →'}
-        </button>
-      </div>
+        <div className="mt-2 flex flex-col gap-3">
+          <button
+            onClick={goNext}
+            className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-4 text-[16px] font-extrabold text-white shadow-sm shadow-primary/20 active:scale-95"
+          >
+            {currentIndex < slides.length - 1 ? 'Sonraki Adım' : 'Alıştırmaya Geç'}
+            <ArrowRight className="h-5 w-5" />
+          </button>
+          {currentIndex > 0 && (
+            <button
+              onClick={goBack}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-primary bg-white text-[15px] font-extrabold text-primary active:scale-95"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Önceki Sayfa
+            </button>
+          )}
+        </div>
+      </main>
     </div>
   );
 }
