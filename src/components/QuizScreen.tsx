@@ -55,7 +55,7 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
   const isCorrect = selected === q.correctIndex;
 
   return (
-    <div className="min-h-screen bg-background pb-28 safe-bottom">
+    <div className="min-h-screen bg-background pb-40 safe-bottom">
       <header className="sticky top-0 z-20 mx-auto flex h-16 max-w-md items-center justify-between border-b border-[#ead9cf] bg-white/95 px-5 backdrop-blur">
         <div className="flex items-center gap-2">
           <button className="flex h-8 w-8 items-center justify-center rounded-full text-primary" aria-label="Sınavı kapat">
@@ -69,7 +69,7 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
         </div>
       </header>
 
-      <main className="mx-auto flex max-w-md flex-col gap-7 px-5 pt-5">
+      <main className="mx-auto flex max-w-md flex-col gap-7 px-5 pb-28 pt-5">
         <section className="space-y-2">
           <div className="flex items-end justify-between">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-primary">Soru {current + 1} / {questions.length}</span>
@@ -131,7 +131,7 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
         )}
       </main>
 
-      <footer className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-[#ead9cf] bg-white p-4">
+      <footer className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-[#ead9cf] bg-white/95 px-4 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 shadow-[0_-8px_24px_rgba(122,58,24,0.08)] backdrop-blur">
         <button
           onClick={handleNext}
           disabled={!showFeedback}
