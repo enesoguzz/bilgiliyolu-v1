@@ -37,7 +37,7 @@ export default function Index() {
   const app = useAppState();
   const content = useContentLibrary(app.isAuthenticated);
   const [utilityScreen, setUtilityScreen] = useState<UtilityScreen>(null);
-  const showBottomNav = app.isAuthenticated && !['admin', 'level', 'onboarding', 'quiz', 'results'].includes(app.screen);
+  const showBottomNav = app.isAuthenticated && !['admin', 'level', 'onboarding', 'slides', 'quiz', 'results'].includes(app.screen);
 
   useEffect(() => {
     setUtilityScreen(null);

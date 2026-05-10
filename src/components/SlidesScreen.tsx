@@ -37,7 +37,7 @@ export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete 
   };
 
   return (
-    <div className="min-h-screen bg-background pb-40 safe-bottom">
+    <div className="min-h-screen bg-background pb-32 safe-bottom">
       <header className="sticky top-0 z-20 mx-auto flex h-16 max-w-md items-center justify-between border-b border-[#ead9cf] bg-white/95 px-5 backdrop-blur">
         <div className="flex items-center gap-3">
           <img src="/kecci-logo.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
@@ -95,7 +95,7 @@ export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete 
           </section>
         )}
 
-        <div className="mt-2 flex flex-col gap-3">
+        <div className="mt-2 hidden flex-col gap-3">
           <button
             onClick={goNext}
             className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-4 text-[16px] font-extrabold text-white shadow-sm shadow-primary/20 active:scale-95"
@@ -114,6 +114,27 @@ export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete 
           )}
         </div>
       </main>
+
+      <footer className="fixed bottom-0 left-1/2 z-30 w-full max-w-md -translate-x-1/2 border-t border-[#ead9cf] bg-white/95 px-5 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3 shadow-[0_-8px_24px_rgba(122,58,24,0.08)] backdrop-blur">
+        <div className="flex gap-3">
+          {currentIndex > 0 && (
+            <button
+              onClick={goBack}
+              className="flex h-12 w-14 shrink-0 items-center justify-center rounded-2xl border border-primary bg-white text-primary active:scale-95"
+              aria-label="Önceki sayfa"
+            >
+              <ArrowLeft className="h-5 w-5" />
+            </button>
+          )}
+          <button
+            onClick={goNext}
+            className="flex h-[52px] flex-1 items-center justify-center gap-2 rounded-2xl bg-primary px-5 py-4 text-[16px] font-extrabold text-white shadow-sm shadow-primary/20 active:scale-95"
+          >
+            {currentIndex < slides.length - 1 ? 'Sonraki Adım' : 'Alıştırmaya Geç'}
+            <ArrowRight className="h-5 w-5" />
+          </button>
+        </div>
+      </footer>
     </div>
   );
 }
