@@ -19,10 +19,6 @@ const subjectNames: Record<string, string> = {
   fen: 'Fen Bilimleri',
   sosyal: 'Sosyal Bilgiler',
   ingilizce: 'İngilizce',
-  fizik: 'Fizik',
-  kimya: 'Kimya',
-  biyoloji: 'Biyoloji',
-  edebiyat: 'Türk Edebiyatı',
 };
 
 export default function PathScreen({
@@ -37,6 +33,7 @@ export default function PathScreen({
   const units = getUnitsForSubjectAndGrade(subjectId, gradeId, sourceUnits);
   const subject = subjects.find(item => item.id === subjectId);
   const subjectName = subjectNames[subjectId] ?? subject?.name ?? 'Ders';
+  const roadHeight = Math.max(800, units.length * 180);
 
   const getUnitStatus = (unit: Unit, index: number): 'completed' | 'active' | 'locked' => {
     if (completedUnits.includes(unit.id)) return 'completed';
@@ -86,10 +83,15 @@ export default function PathScreen({
             <p className="mt-1 text-xs text-[#86736b]">Yakında yeni üniteler eklenecek.</p>
           </div>
         ) : (
-          <section className="relative mt-8 min-h-[760px] overflow-hidden">
-            <svg className="pointer-events-none absolute left-1/2 top-0 z-0 h-[800px] w-32 -translate-x-1/2" fill="none" viewBox="0 0 100 800">
+          <section className="relative mt-8 pb-28">
+            <svg
+              className="pointer-events-none absolute left-1/2 top-0 z-0 w-32 -translate-x-1/2"
+              fill="none"
+              style={{ height: `${roadHeight}px` }}
+              viewBox={`0 0 100 ${roadHeight}`}
+            >
               <path
-                d="M50 0 C70 100 30 200 50 300 C70 400 30 500 50 600 C70 700 30 800 50 900"
+                d={`M50 0 C70 ${roadHeight * 0.12} 30 ${roadHeight * 0.25} 50 ${roadHeight * 0.38} C70 ${roadHeight * 0.5} 30 ${roadHeight * 0.62} 50 ${roadHeight * 0.75} C70 ${roadHeight * 0.87} 30 ${roadHeight} 50 ${roadHeight + 120}`}
                 stroke="#d9c2b8"
                 strokeDasharray="12 8"
                 strokeWidth="4"
@@ -97,7 +99,7 @@ export default function PathScreen({
             </svg>
 
             <div className="relative z-10 flex flex-col items-center gap-24">
-              {units.slice(0, 4).map((unit, index) => {
+              {units.map((unit, index) => {
                 const status = getUnitStatus(unit, index);
                 const score = unitScores[unit.id];
                 const isCompleted = status === 'completed';

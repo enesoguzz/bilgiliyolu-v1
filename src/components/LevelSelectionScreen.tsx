@@ -1,4 +1,4 @@
-import { BookOpen, GraduationCap, School } from 'lucide-react';
+import { BookOpen, School } from 'lucide-react';
 import { GradeLevel } from '@/types/curriculum';
 
 interface LevelSelectionScreenProps {
@@ -22,12 +22,6 @@ const levels: Array<{
     title: 'Ortaokul',
     subtitle: '5, 6, 7 ve 8. sınıf',
     icon: BookOpen,
-  },
-  {
-    id: 'high',
-    title: 'Lise',
-    subtitle: '9, 10, 11 ve 12. sınıf',
-    icon: GraduationCap,
   },
 ];
 

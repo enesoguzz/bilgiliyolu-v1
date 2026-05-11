@@ -1,7 +1,7 @@
-export type GradeLevel = 'primary' | 'middle' | 'high';
+export type GradeLevel = 'primary' | 'middle';
 
 export interface Grade {
-  id: number; // 1-12
+  id: number; // 1-8
   level: GradeLevel;
   label: string;
 }

@@ -3,9 +3,10 @@ import { CheckCircle2, Home, RefreshCcw, Star, XCircle } from 'lucide-react';
 interface ResultsScreenProps {
   score: number;
   onContinue: () => void;
+  onHome: () => void;
 }
 
-export default function ResultsScreen({ score, onContinue }: ResultsScreenProps) {
+export default function ResultsScreen({ score, onContinue, onHome }: ResultsScreenProps) {
   const passed = score >= 60;
   const message = score >= 90
     ? 'Tebrikler!'
@@ -74,7 +75,7 @@ export default function ResultsScreen({ score, onContinue }: ResultsScreenProps)
 
         <div className="flex w-full flex-col gap-3">
           <button
-            onClick={onContinue}
+            onClick={onHome}
             className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[16px] font-extrabold text-white shadow-md active:scale-95"
           >
             <Home className="h-5 w-5" />
@@ -85,7 +86,7 @@ export default function ResultsScreen({ score, onContinue }: ResultsScreenProps)
             className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl border border-primary bg-white text-[16px] font-extrabold text-primary active:scale-95"
           >
             <RefreshCcw className="h-5 w-5" />
-            Devam Et
+            Yolculuğa Devam Et
           </button>
         </div>
       </main>

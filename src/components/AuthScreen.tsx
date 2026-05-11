@@ -10,7 +10,7 @@ interface AuthScreenProps {
   error: string | null;
   notice: string | null;
   passwordRecovery: boolean;
-  pendingVerification: { type: VerificationType; identifier: string } | null;
+  pendingVerification: { type: VerificationType; identifier: string; purpose?: 'login' | 'signup'; emailOtpType?: 'email' | 'signup' } | null;
   onBeginPasswordVerification: (
     identifier: string,
     password: string,
@@ -52,6 +52,7 @@ export default function AuthScreen({
   const [loginIdentifier, setLoginIdentifier] = useState('');
   const [verificationType, setVerificationType] = useState<VerificationType>('email');
   const [verificationIdentifier, setVerificationIdentifier] = useState('');
+  const [verificationPurpose, setVerificationPurpose] = useState<'login' | 'signup'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
@@ -67,6 +68,7 @@ export default function AuthScreen({
     if (!pendingVerification) return;
     setVerificationType(pendingVerification.type);
     setVerificationIdentifier(pendingVerification.identifier);
+    setVerificationPurpose(pendingVerification.purpose ?? 'login');
     setSmsCode('');
     setMode('verify');
   }, [pendingVerification]);
@@ -198,8 +200,9 @@ export default function AuthScreen({
           {activeMode === 'verify' && (
             <>
               <p className="-mt-3 rounded-[18px] bg-[#fbfaf8] px-5 py-4 text-[14px] font-semibold leading-6 text-[#5a4538]">
-                Kod {verificationType === 'email' ? 'e-posta adresine' : 'telefonuna'} gönderildi. Lütfen gelen kodu
-                aşağıya yaz.
+                {verificationPurpose === 'signup'
+                  ? 'Kaydını tamamlamak için e-posta adresine gönderilen doğrulama kodunu yaz.'
+                  : `Kod ${verificationType === 'email' ? 'e-posta adresine' : 'telefonuna'} gönderildi. Lütfen gelen kodu aşağıya yaz.`}
               </p>
               <IconInput
                 label="Doğrulama Kodu"

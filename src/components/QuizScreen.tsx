@@ -7,6 +7,7 @@ interface QuizScreenProps {
   unitId: string;
   questions?: Question[];
   onComplete: (score: number) => void;
+  onExit: () => void;
 }
 
 function shuffleAndPick(questions: Question[], count: number): Question[] {
@@ -14,7 +15,7 @@ function shuffleAndPick(questions: Question[], count: number): Question[] {
   return shuffled.slice(0, count);
 }
 
-export default function QuizScreen({ unitId, questions: sourceQuestions, onComplete }: QuizScreenProps) {
+export default function QuizScreen({ unitId, questions: sourceQuestions, onComplete, onExit }: QuizScreenProps) {
   const questions = useMemo(() => shuffleAndPick(getQuestionsForUnit(unitId, sourceQuestions), 7), [sourceQuestions, unitId]);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -58,7 +59,12 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
     <div className="min-h-screen bg-background pb-40 safe-bottom">
       <header className="sticky top-0 z-20 mx-auto flex h-16 max-w-md items-center justify-between border-b border-[#ead9cf] bg-white/95 px-5 backdrop-blur">
         <div className="flex items-center gap-2">
-          <button className="flex h-8 w-8 items-center justify-center rounded-full text-primary" aria-label="Sınavı kapat">
+          <button
+            type="button"
+            onClick={onExit}
+            className="flex h-8 w-8 items-center justify-center rounded-full text-primary active:scale-95"
+            aria-label="Sınavı kapat"
+          >
             <X className="h-5 w-5" />
           </button>
           <span className="text-[20px] font-extrabold text-primary">Keççi</span>

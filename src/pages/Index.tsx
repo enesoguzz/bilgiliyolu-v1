@@ -5,6 +5,8 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
+  Crown,
   Glasses,
   GraduationCap,
   Lock,
@@ -18,13 +20,13 @@ import {
   Star,
   Trophy,
   User,
+  X,
 } from 'lucide-react';
 import { useAppState } from '@/hooks/useAppState';
 import { useContentLibrary } from '@/hooks/useContentLibrary';
 import AdminPanel from '@/components/AdminPanel';
 import AuthScreen from '@/components/AuthScreen';
-import LevelSelectionScreen from '@/components/LevelSelectionScreen';
-import OnboardingScreen from '@/components/OnboardingScreen';
+import TutorialScreen from '@/components/TutorialScreen';
 import SubjectScreen from '@/components/SubjectScreen';
 import PathScreen from '@/components/PathScreen';
 import SlidesScreen from '@/components/SlidesScreen';
@@ -33,11 +35,17 @@ import ResultsScreen from '@/components/ResultsScreen';
 
 type UtilityScreen = 'profile' | 'settings' | null;
 
+function calculateTotalPoints(unitScores: Record<string, number>): number {
+  return Object.values(unitScores).reduce((sum, score) => sum + Math.max(50, score * 5), 0);
+}
+
 export default function Index() {
   const app = useAppState();
   const content = useContentLibrary(app.isAuthenticated);
   const [utilityScreen, setUtilityScreen] = useState<UtilityScreen>(null);
-  const showBottomNav = app.isAuthenticated && !['admin', 'level', 'onboarding', 'slides', 'quiz', 'results'].includes(app.screen);
+  const [proPrompt, setProPrompt] = useState<string | null>(null);
+  const totalPoints = calculateTotalPoints(app.progress.unitScores);
+  const showBottomNav = app.isAuthenticated && !['admin', 'level', 'tutorial', 'onboarding', 'slides', 'quiz', 'results'].includes(app.screen);
 
   useEffect(() => {
     setUtilityScreen(null);
@@ -93,7 +101,13 @@ export default function Index() {
       )}
 
       {utilityScreen === 'profile' && app.gradeId && (
-        <ProfileScreen gradeId={app.gradeId} userEmail={app.userEmail} />
+        <ProfileScreen
+          gradeId={app.gradeId}
+          userEmail={app.userEmail}
+          displayName={app.userDisplayName}
+          totalPoints={totalPoints}
+          onProFeature={setProPrompt}
+        />
       )}
       {utilityScreen === 'settings' && (
         <SettingsScreen onSignOut={app.signOut} isAdmin={app.isAdmin} onAdmin={app.goToAdmin} />
@@ -108,15 +122,8 @@ export default function Index() {
           onRefresh={content.refreshContent}
         />
       )}
-      {!utilityScreen && app.screen === 'level' && (
-        <LevelSelectionScreen onSelectLevel={app.selectLevel} />
-      )}
-      {!utilityScreen && app.screen === 'onboarding' && app.selectedLevel && (
-        <OnboardingScreen
-          level={app.selectedLevel}
-          onSelectGrade={app.selectGrade}
-          onBack={app.goToLevelSelection}
-        />
+      {!utilityScreen && (app.screen === 'level' || app.screen === 'tutorial' || app.screen === 'onboarding') && (
+        <TutorialScreen onSelectGrade={app.selectGrade} />
       )}
       {!utilityScreen && app.screen === 'subjects' && app.gradeId && (
         <SubjectScreen
@@ -126,6 +133,11 @@ export default function Index() {
           isAdmin={app.isAdmin}
           onAdmin={app.goToAdmin}
           onSignOut={app.signOut}
+          onProFeature={setProPrompt}
+          completedUnits={app.progress.completedUnits}
+          unitScores={app.progress.unitScores}
+          units={content.units}
+          totalPoints={totalPoints}
         />
       )}
       {!utilityScreen && app.screen === 'path' && app.gradeId && app.subjectId && (
@@ -143,12 +155,13 @@ export default function Index() {
         <SlidesScreen unitId={app.unitId} slides={content.slides} onComplete={app.startQuiz} />
       )}
       {!utilityScreen && app.screen === 'quiz' && app.unitId && (
-        <QuizScreen unitId={app.unitId} questions={content.questions} onComplete={app.completeQuiz} />
+        <QuizScreen unitId={app.unitId} questions={content.questions} onComplete={app.completeQuiz} onExit={app.goToPath} />
       )}
       {!utilityScreen && app.screen === 'results' && (
         <ResultsScreen
           score={app.progress.unitScores[app.unitId!] || 0}
           onContinue={app.goToPath}
+          onHome={app.goToSubjects}
         />
       )}
       {showBottomNav && (
@@ -164,10 +177,12 @@ export default function Index() {
             if (app.subjectId) app.goToPath();
             else app.selectSubject('turkce');
           }}
+          onTests={() => setProPrompt('Denemelerim')}
           onProfile={() => setUtilityScreen('profile')}
           onSettings={() => setUtilityScreen('settings')}
         />
       )}
+      {proPrompt && <ProFeatureModal feature={proPrompt} onClose={() => setProPrompt(null)} />}
     </div>
   );
 }
@@ -177,6 +192,7 @@ function BottomNav({
   canOpenJourney,
   onSubjects,
   onJourney,
+  onTests,
   onProfile,
   onSettings,
 }: {
@@ -184,11 +200,12 @@ function BottomNav({
   canOpenJourney: boolean;
   onSubjects: () => void;
   onJourney: () => void;
+  onTests: () => void;
   onProfile: () => void;
   onSettings: () => void;
 }) {
   return (
-    <nav className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-center justify-around rounded-t-2xl border-t border-[#ead9cf] bg-white px-4 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 shadow-[0_-8px_24px_rgba(122,58,24,0.08)]">
+    <nav className="fixed bottom-0 left-1/2 z-40 flex w-full max-w-md -translate-x-1/2 items-center justify-around rounded-t-2xl border-t border-[#ead9cf] bg-white px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 shadow-[0_-8px_24px_rgba(122,58,24,0.08)]">
       <NavButton label="Dersler" active={active === 'subjects'} onClick={onSubjects} icon={<BookOpen className="h-5 w-5" />} />
       <NavButton
         label="Yolculuk"
@@ -197,9 +214,53 @@ function BottomNav({
         disabled={!canOpenJourney}
         icon={<Route className="h-5 w-5" />}
       />
+      <NavButton label="Denemeler" onClick={onTests} icon={<ClipboardList className="h-5 w-5" />} locked />
       <NavButton label="Profil" active={active === 'profile'} onClick={onProfile} icon={<User className="h-5 w-5" />} />
       <NavButton label="Ayarlar" active={active === 'settings'} onClick={onSettings} icon={<Settings className="h-5 w-5" />} />
     </nav>
+  );
+}
+
+function ProFeatureModal({ feature, onClose }: { feature: string; onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/35 px-4 pb-4 sm:items-center sm:pb-0">
+      <section className="w-full max-w-md rounded-3xl border border-[#d9c2b8] bg-white p-6 shadow-2xl">
+        <div className="flex items-start justify-between gap-4">
+          <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-[#ffddb9] text-primary">
+            <Crown className="h-7 w-7" />
+          </span>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-[#ead9cf] text-primary active:scale-95"
+            aria-label="Pro uyarısını kapat"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <p className="mt-5 text-[12px] font-extrabold uppercase tracking-wider text-[#8b7564]">Pro Özellik</p>
+        <h2 className="mt-1 text-[26px] font-extrabold leading-8 text-primary">{feature}</h2>
+        <p className="mt-3 text-[15px] font-semibold leading-6 text-[#5a4538]">
+          Bu özellik Keççi Pro hesaplara özeldir. Pro hesaba geçerek denemeler, özel maskotlar, aksesuarlar ve gelişmiş raporları açabilirsin.
+        </p>
+        <div className="mt-5 grid gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-12 rounded-2xl bg-primary text-[15px] font-extrabold text-white active:scale-95"
+          >
+            Pro Hesap Al
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-12 rounded-2xl border border-primary bg-white text-[15px] font-extrabold text-primary active:scale-95"
+          >
+            Şimdilik Kapat
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -215,8 +276,21 @@ function UtilityHeader({ title, subtitle }: { title: string; subtitle: string })
   );
 }
 
-function ProfileScreen({ gradeId, userEmail }: { gradeId: number; userEmail: string | null }) {
+function ProfileScreen({
+  gradeId,
+  userEmail,
+  displayName,
+  totalPoints,
+  onProFeature,
+}: {
+  gradeId: number;
+  userEmail: string | null;
+  displayName: string | null;
+  totalPoints: number;
+  onProFeature: (feature: string) => void;
+}) {
   const mascotScrollRef = useRef<HTMLDivElement>(null);
+  const [saveNotice, setSaveNotice] = useState(false);
   const mascots = [
     { name: 'Keçi', src: '/mascots/ankara-kecisi.png', pro: false },
     { name: 'Aslan', src: '/mascots/aslan.png', pro: true },
@@ -234,6 +308,9 @@ function ProfileScreen({ gradeId, userEmail }: { gradeId: number; userEmail: str
       behavior: 'smooth',
     });
   };
+  const profileName = displayName || userEmail?.split('@')[0] || 'Keççi Öğrencisi';
+  const nextRankPoints = 1500;
+  const rankProgress = Math.min(100, Math.round((totalPoints / nextRankPoints) * 100));
 
   return (
     <div className="min-h-screen bg-background pb-44 safe-bottom">
@@ -249,19 +326,21 @@ function ProfileScreen({ gradeId, userEmail }: { gradeId: number; userEmail: str
             </div>
           </div>
 
-          <h1 className="mt-4 text-[32px] font-extrabold leading-10 text-primary">Enes Oğuz</h1>
+          <h1 className="mt-4 text-[32px] font-extrabold leading-10 text-primary">{profileName}</h1>
           <p className="text-[20px] font-bold text-[#54433c]">Bilge Keçi - Seviye 5</p>
           {userEmail && <p className="mt-1 text-xs font-semibold text-[#86736b]">{userEmail}</p>}
 
           <div className="mt-5 w-full rounded-xl border border-[#d9c2b8] bg-[#f3f3f3] p-4 text-left">
             <div className="mb-2 flex items-center justify-between gap-3">
               <span className="text-[12px] font-extrabold uppercase tracking-wider text-primary">Sonraki Rütbe: Üstad Keçi</span>
-              <span className="shrink-0 text-[12px] font-bold text-[#54433c]">1250 / 1500 Puan</span>
+              <span className="shrink-0 text-[12px] font-bold text-[#54433c]">{totalPoints} / {nextRankPoints} Puan</span>
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full bg-[#e6e2dc]">
-              <div className="h-full w-[83%] rounded-full bg-[#f8bb73]" />
+              <div className="h-full rounded-full bg-[#f8bb73]" style={{ width: `${rankProgress}%` }} />
             </div>
-            <p className="mt-2 text-[11px] font-semibold italic text-[#54433c]">Üstad rütbesine ulaşmak için 250 puan daha gerekli.</p>
+            <p className="mt-2 text-[11px] font-semibold italic text-[#54433c]">
+              Üstad rütbesine ulaşmak için {Math.max(0, nextRankPoints - totalPoints)} puan daha gerekli.
+            </p>
           </div>
         </section>
 
@@ -295,6 +374,7 @@ function ProfileScreen({ gradeId, userEmail }: { gradeId: number; userEmail: str
               <button
                 key={mascot.name}
                 type="button"
+                onClick={() => mascot.pro && onProFeature(`${mascot.name} maskotu`)}
                 className={`relative flex aspect-square w-28 shrink-0 flex-col items-center justify-center rounded-xl bg-white p-2 transition-all active:scale-95 ${
                   index === 0 ? 'border-2 border-primary shadow-sm' : 'border border-[#d9c2b8]'
                 }`}
@@ -320,18 +400,49 @@ function ProfileScreen({ gradeId, userEmail }: { gradeId: number; userEmail: str
           <h2 className="mb-4 text-[12px] font-extrabold uppercase tracking-wider text-primary">Karakterini Giydir</h2>
           <div className="grid grid-cols-2 gap-4">
             <WardrobeCard icon={<Glasses className="h-6 w-6" />} title="Gözlük" status="Kuşanıldı" active />
-            <WardrobeCard icon={<GraduationCap className="h-6 w-6" />} title="Mezuniyet" status="Pro" locked pro />
-            <WardrobeCard icon={<Shirt className="h-6 w-6" />} title="Pelerin" status="Kilitli" locked />
+            <WardrobeCard icon={<GraduationCap className="h-6 w-6" />} title="Mezuniyet" status="Pro" locked pro onClick={() => onProFeature('Mezuniyet aksesuarı')} />
+            <WardrobeCard icon={<Shirt className="h-6 w-6" />} title="Pelerin" status="Kilitli" locked onClick={() => onProFeature('Pelerin aksesuarı')} />
             <WardrobeCard icon={<Plus className="h-6 w-6" />} title="Şapka Ekle" status="" />
           </div>
         </section>
 
+        <section className="rounded-3xl border border-[#d9c2b8] bg-[#fdf9f3] p-5 shadow-[0_3px_0_0_#e0d7d0]">
+          <div className="flex items-start gap-4">
+            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ffddb9] text-primary">
+              <Crown className="h-6 w-6" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-extrabold uppercase tracking-wider text-[#8b7564]">Abonelik</p>
+              <h2 className="text-[22px] font-extrabold text-primary">Keççi Pro</h2>
+              <p className="mt-1 text-[13px] font-semibold leading-5 text-[#5a4538]">
+                Denemelerim, özel maskotlar, aksesuarlar ve gelişmiş ilerleme raporları Pro hesapla açılır.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onProFeature('Keççi Pro aboneliği')}
+            className="mt-4 h-12 w-full rounded-2xl bg-primary text-[15px] font-extrabold text-white active:scale-95"
+          >
+            Pro Hesaba Geç
+          </button>
+        </section>
+
         <button
           type="button"
+          onClick={() => {
+            setSaveNotice(true);
+            window.setTimeout(() => setSaveNotice(false), 1800);
+          }}
           className="h-14 w-full rounded-xl bg-primary text-[20px] font-extrabold text-white shadow-sm transition-transform active:scale-95"
         >
           Kaydet
         </button>
+        {saveNotice && (
+          <p className="-mt-5 rounded-2xl bg-[#f7e5bc] px-4 py-3 text-center text-[13px] font-extrabold text-primary">
+            Profil tercihlerin kaydedildi.
+          </p>
+        )}
       </main>
     </div>
   );
@@ -344,6 +455,7 @@ function WardrobeCard({
   active = false,
   locked = false,
   pro = false,
+  onClick,
 }: {
   icon: ReactNode;
   title: string;
@@ -351,10 +463,12 @@ function WardrobeCard({
   active?: boolean;
   locked?: boolean;
   pro?: boolean;
+  onClick?: () => void;
 }) {
   return (
     <button
       type="button"
+      onClick={onClick}
       className={`flex flex-col items-center gap-3 rounded-xl p-6 text-center transition-all active:scale-95 ${
         active
           ? 'border-2 border-[#ffb694] bg-white'
@@ -428,12 +542,14 @@ function NavButton({
   icon,
   active = false,
   disabled = false,
+  locked = false,
   onClick,
 }: {
   label: string;
   icon: ReactNode;
   active?: boolean;
   disabled?: boolean;
+  locked?: boolean;
   onClick?: () => void;
 }) {
   return (
@@ -446,7 +562,10 @@ function NavButton({
       } ${disabled ? 'cursor-not-allowed opacity-45' : 'active:scale-95'}`}
     >
       {icon}
-      <span className="mt-0.5">{label}</span>
+      <span className="mt-0.5 flex items-center gap-1">
+        {label}
+        {locked && <Lock className="h-3 w-3" />}
+      </span>
     </button>
   );
 }

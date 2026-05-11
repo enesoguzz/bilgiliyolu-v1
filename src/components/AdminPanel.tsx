@@ -237,7 +237,7 @@ export default function AdminPanel({
                 <input
                   type="number"
                   min={1}
-                  max={12}
+                  max={8}
                   value={unitForm.gradeId}
                   onChange={event => setUnitForm(value => ({ ...value, gradeId: Number(event.target.value) }))}
                   className="mt-1 w-full rounded-xl border border-input bg-background px-3 py-3 text-sm"

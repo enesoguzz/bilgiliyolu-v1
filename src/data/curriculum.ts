@@ -10,9 +10,9 @@ type SubjectSeed = {
   skill: string;
 };
 
-export const grades: Grade[] = Array.from({ length: 12 }, (_, index) => ({
+export const grades: Grade[] = Array.from({ length: 8 }, (_, index) => ({
   id: index + 1,
-  level: index < 4 ? 'primary' : index < 8 ? 'middle' : 'high',
+  level: index < 4 ? 'primary' : 'middle',
   label: `${index + 1}. Sınıf`,
 }));
 
@@ -31,7 +31,7 @@ const subjectSeeds: SubjectSeed[] = [
     name: 'Matematik',
     icon: '🔢',
     color: 'info',
-    grades: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
+    grades: [1, 2, 3, 4, 5, 6, 7, 8],
     themes: ['Sayılar ve İşlemler', 'Problemler', 'Kesirler ve Oranlar', 'Geometri', 'Veri ve Olasılık'],
     skill: 'sayısal düşünme ve problem çözme',
   },
@@ -67,45 +67,9 @@ const subjectSeeds: SubjectSeed[] = [
     name: 'İngilizce',
     icon: '🇬🇧',
     color: 'destructive',
-    grades: [5, 6, 7, 8, 9, 10, 11, 12],
+    grades: [5, 6, 7, 8],
     themes: ['Everyday English', 'Vocabulary Builder', 'Grammar in Use', 'Reading Skills', 'Speaking Practice'],
     skill: 'temel İngilizce iletişim kurma',
-  },
-  {
-    id: 'fizik',
-    name: 'Fizik',
-    icon: '⚡',
-    color: 'warning',
-    grades: [9, 10, 11, 12],
-    themes: ['Fizik Bilimine Giriş', 'Kuvvet ve Hareket', 'Enerji', 'Elektrik ve Manyetizma', 'Dalgalar ve Optik'],
-    skill: 'doğa olaylarını modelleme',
-  },
-  {
-    id: 'kimya',
-    name: 'Kimya',
-    icon: '🧪',
-    color: 'success',
-    grades: [9, 10, 11, 12],
-    themes: ['Kimyanın Temel Kanunları', 'Atom ve Periyodik Sistem', 'Kimyasal Türler', 'Karışımlar', 'Asitler, Bazlar ve Tuzlar'],
-    skill: 'maddelerin yapısını ve değişimini açıklama',
-  },
-  {
-    id: 'biyoloji',
-    name: 'Biyoloji',
-    icon: '🧬',
-    color: 'primary',
-    grades: [9, 10, 11, 12],
-    themes: ['Yaşam Bilimi Biyoloji', 'Hücre', 'Canlıların Sınıflandırılması', 'Kalıtım', 'Ekosistem Ekolojisi'],
-    skill: 'canlı sistemlerini ilişkilendirme',
-  },
-  {
-    id: 'edebiyat',
-    name: 'Türk Edebiyatı',
-    icon: '✍️',
-    color: 'accent',
-    grades: [9, 10, 11, 12],
-    themes: ['Edebiyata Giriş', 'Şiir', 'Hikaye ve Roman', 'Tiyatro', 'Deneme ve Makale'],
-    skill: 'edebi metinleri çözümleme ve yorumlama',
   },
 ];
 

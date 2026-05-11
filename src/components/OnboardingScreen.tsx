@@ -11,13 +11,11 @@ interface OnboardingScreenProps {
 const levelLabels: Record<GradeLevel, string> = {
   primary: 'İlkokul',
   middle: 'Ortaokul',
-  high: 'Lise',
 };
 
 const levelDescriptions: Record<GradeLevel, string> = {
   primary: '1, 2, 3 ve 4. sınıf',
   middle: '5, 6, 7 ve 8. sınıf',
-  high: '9, 10, 11 ve 12. sınıf',
 };
 
 export default function OnboardingScreen({ level, onSelectGrade, onBack }: OnboardingScreenProps) {

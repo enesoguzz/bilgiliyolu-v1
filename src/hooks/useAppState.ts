@@ -6,6 +6,7 @@ import { isSupabaseConfigured, supabase } from '@/lib/supabase';
 export type AppScreen =
   | 'admin'
   | 'level'
+  | 'tutorial'
   | 'onboarding'
   | 'subjects'
   | 'path'
@@ -42,6 +43,8 @@ type VerificationStartResult = {
 export type PendingVerification = {
   type: 'email' | 'sms';
   identifier: string;
+  purpose?: 'login' | 'signup';
+  emailOtpType?: 'email' | 'signup';
 } | null;
 
 const STORAGE_KEY = 'bilgi-yolu-progress';
@@ -85,11 +88,26 @@ function readProgress(): UserProgress {
 }
 
 function screenForProgress(progress: UserProgress): AppScreen {
-  return progress.gradeId ? 'subjects' : 'level';
+  return progress.gradeId ? 'subjects' : 'tutorial';
 }
 
 function getUserEmail(user: User | null): string | null {
   return user?.email ?? null;
+}
+
+function getUserDisplayName(user: User | null): string | null {
+  const metadata = user?.user_metadata;
+  const candidates = [
+    metadata?.display_name,
+    metadata?.full_name,
+    metadata?.name,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+  }
+
+  return null;
 }
 
 function cleanRedirectUrl(url: string | undefined): string | null {
@@ -189,9 +207,7 @@ export function useAppState() {
   const currentUser = session?.user ?? null;
   const currentUserId = currentUser?.id ?? null;
   const currentUserEmail = getUserEmail(currentUser);
-  const currentUserDisplayName = typeof currentUser?.user_metadata?.display_name === 'string'
-    ? currentUser.user_metadata.display_name
-    : null;
+  const currentUserDisplayName = getUserDisplayName(currentUser);
 
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state.progress));
@@ -444,7 +460,7 @@ export function useAppState() {
       }
 
       setAuthNotice('Doğrulama kodu e-posta adresine gönderildi.');
-      setPendingVerification({ type: 'email', identifier: trimmedIdentifier });
+      setPendingVerification({ type: 'email', identifier: trimmedIdentifier, purpose: 'login' });
       setAuthLoading(false);
       return { ok: true, type: 'email', identifier: trimmedIdentifier };
     }
@@ -496,10 +512,43 @@ export function useAppState() {
 
     if (error) {
       setAuthError(translateAuthError(error.message));
-    } else if (!data.session) {
-      setAuthNotice('Kayıt alındı. E-posta doğrulama bağlantısı için gelen kutunu kontrol et.');
     } else {
-      setAuthNotice('Hesabın oluşturuldu.');
+      if (data.session) {
+        await supabase.auth.signOut({ scope: 'local' });
+        setSession(null);
+
+        const { error: otpError } = await supabase.auth.signInWithOtp({
+          email,
+          options: {
+            emailRedirectTo: getAuthRedirectUrl(),
+            shouldCreateUser: false,
+          },
+        });
+
+        if (otpError) {
+          setAuthError(translateAuthError(otpError.message));
+          setAuthLoading(false);
+          return;
+        }
+      }
+
+      setState(current => ({
+        ...current,
+        screen: 'tutorial',
+        selectedLevel: null,
+        gradeId: null,
+        subjectId: null,
+        unitId: null,
+        progress: initialProgress,
+      }));
+      setAuthGateActive(true);
+      setPendingVerification({
+        type: 'email',
+        identifier: email,
+        purpose: 'signup',
+        emailOtpType: data.session ? 'email' : 'signup',
+      });
+      setAuthNotice('Kayıt alındı. E-posta doğrulama kodu için gelen kutunu kontrol et.');
     }
 
     setAuthLoading(false);
@@ -615,10 +664,11 @@ export function useAppState() {
     setAuthError(null);
     setAuthNotice(null);
 
+    const emailOtpType = pendingVerification?.emailOtpType ?? (pendingVerification?.purpose === 'signup' ? 'signup' : 'email');
     const { error } = await supabase.auth.verifyOtp({
       email,
       token,
-      type: 'email',
+      type: emailOtpType,
     });
 
     if (error) {
@@ -630,7 +680,7 @@ export function useAppState() {
     }
 
     setAuthLoading(false);
-  }, []);
+  }, [pendingVerification]);
 
   const signInWithOAuth = useCallback(async (provider: 'google' | 'apple') => {
     if (!supabase) return;
@@ -660,6 +710,15 @@ export function useAppState() {
     setIsAdmin(false);
     setAuthGateActive(false);
     setPendingVerification(null);
+    setState(current => ({
+      ...current,
+      screen: 'tutorial',
+      selectedLevel: null,
+      gradeId: null,
+      subjectId: null,
+      unitId: null,
+      progress: initialProgress,
+    }));
   }, []);
 
   const clearPendingVerification = useCallback(() => {
@@ -672,7 +731,7 @@ export function useAppState() {
     setState(current => ({
       ...current,
       selectedLevel: level,
-      screen: 'onboarding',
+      screen: 'tutorial',
     }));
   }, []);
 
@@ -735,7 +794,7 @@ export function useAppState() {
   const goToOnboarding = useCallback(() => {
     setState(current => ({
       ...current,
-      screen: 'level',
+      screen: 'tutorial',
       selectedLevel: null,
       gradeId: null,
       subjectId: null,
@@ -747,7 +806,7 @@ export function useAppState() {
   const goToLevelSelection = useCallback(() => {
     setState(current => ({
       ...current,
-      screen: 'level',
+      screen: 'tutorial',
       selectedLevel: null,
     }));
   }, []);
@@ -770,6 +829,7 @@ export function useAppState() {
     isAdmin,
     isAuthenticated: Boolean(currentUser) && !authGateActive && !passwordRecovery && !pendingVerification,
     userEmail: currentUserEmail,
+    userDisplayName: currentUserDisplayName,
     signIn,
     signInWithPassword,
     beginPasswordVerification,
@@ -806,6 +866,3 @@ function normalizeTurkishPhone(phone: string): string | null {
 
   return null;
 }
-
-
-
