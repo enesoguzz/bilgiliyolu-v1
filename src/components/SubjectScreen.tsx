@@ -26,6 +26,8 @@ interface SubjectScreenProps {
   onAdmin?: () => void;
   onSignOut?: () => void;
   onProFeature?: (feature: string) => void;
+  onOpenTests?: () => void;
+  isPro?: boolean;
   completedUnits: string[];
   unitScores: Record<string, number>;
   units?: Unit[];
@@ -58,6 +60,8 @@ export default function SubjectScreen({
   onAdmin,
   onSignOut,
   onProFeature,
+  onOpenTests,
+  isPro = false,
   completedUnits,
   unitScores,
   units,
@@ -185,12 +189,15 @@ export default function SubjectScreen({
             <h2 className="text-[24px] font-bold text-primary">Derslerin</h2>
             <button
               type="button"
-              onClick={() => onProFeature?.('Denemelerim')}
+              onClick={() => {
+                if (isPro) onOpenTests?.();
+                else onProFeature?.('Denemelerim');
+              }}
               className="flex items-center gap-2 rounded-full border border-[#d9c2b8] bg-white px-3 py-2 text-[12px] font-extrabold text-primary shadow-sm active:scale-95"
             >
               <ClipboardList className="h-4 w-4" />
               Denemelerim
-              <Lock className="h-3.5 w-3.5" />
+              {!isPro && <Lock className="h-3.5 w-3.5" />}
             </button>
           </div>
           {subjectSummaries.map(({ subject, progress, averageScore }) => {

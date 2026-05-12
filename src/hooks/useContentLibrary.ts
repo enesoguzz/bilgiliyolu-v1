@@ -41,6 +41,7 @@ function rowToUnit(row: UnitRow): Unit {
     order: row.order_index,
     title: row.title,
     description: row.description,
+    isPublished: row.is_published,
   };
 }
 
@@ -52,6 +53,7 @@ function rowToSlide(row: SlideRow): TopicSlide {
     title: row.title,
     content: row.content,
     example: row.example ?? undefined,
+    isPublished: row.is_published,
   };
 }
 
@@ -63,6 +65,7 @@ function rowToQuestion(row: QuestionRow): Question {
     options: Array.isArray(row.options) ? row.options.map(String) : [],
     correctIndex: row.correct_index,
     explanation: row.explanation,
+    isPublished: row.is_published,
   };
 }
 

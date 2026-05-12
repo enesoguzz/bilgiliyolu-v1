@@ -32,6 +32,9 @@ type ProgressRow = {
 
 type ProfileRow = {
   is_admin: boolean | null;
+  is_pro: boolean | null;
+  subscription_status: string | null;
+  pro_expires_at: string | null;
 };
 
 type VerificationStartResult = {
@@ -170,6 +173,10 @@ function translateAuthError(message: string): string {
   }
 
   if (normalized.includes('provider is not enabled') || normalized.includes('unsupported provider')) {
+    return 'Google girişi için Supabase Auth > Providers bölümünde Google sağlayıcısını aktif etmelisin.';
+  }
+
+  if (normalized.includes('provider is not enabled') || normalized.includes('unsupported provider')) {
     return 'Bu giriş yöntemi henüz aktif değil. Lütfen e-posta veya telefonla giriş yap.';
   }
 
@@ -178,6 +185,13 @@ function translateAuthError(message: string): string {
   }
 
   return 'İşlem tamamlanamadı. Lütfen bilgilerini kontrol edip tekrar dene.';
+}
+
+function isProfilePro(profile: ProfileRow | null): boolean {
+  if (!profile?.is_pro) return false;
+  if (!profile.pro_expires_at) return true;
+
+  return new Date(profile.pro_expires_at).getTime() > Date.now();
 }
 
 export function useAppState() {
@@ -204,6 +218,7 @@ export function useAppState() {
   const authGateActiveRef = useRef(false);
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isPro, setIsPro] = useState(false);
   const currentUser = session?.user ?? null;
   const currentUserId = currentUser?.id ?? null;
   const currentUserEmail = getUserEmail(currentUser);
@@ -295,7 +310,7 @@ export function useAppState() {
 
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
-        .select('is_admin')
+        .select('is_admin, is_pro, subscription_status, pro_expires_at')
         .eq('id', currentUserId)
         .maybeSingle();
 
@@ -310,7 +325,9 @@ export function useAppState() {
       if (profileError) {
         setAuthError(translateAuthError(profileError.message));
       } else {
-        setIsAdmin(Boolean((profileData as ProfileRow | null)?.is_admin));
+        const profile = profileData as ProfileRow | null;
+        setIsAdmin(Boolean(profile?.is_admin));
+        setIsPro(isProfilePro(profile));
       }
 
       if (data) {
@@ -693,6 +710,12 @@ export function useAppState() {
       provider,
       options: {
         redirectTo: getAuthRedirectUrl(),
+        queryParams: provider === 'google'
+          ? {
+            access_type: 'offline',
+            prompt: 'select_account',
+          }
+          : undefined,
       },
     });
 
@@ -708,6 +731,7 @@ export function useAppState() {
     setSession(null);
     setRemoteReady(false);
     setIsAdmin(false);
+    setIsPro(false);
     setAuthGateActive(false);
     setPendingVerification(null);
     setState(current => ({
@@ -827,6 +851,7 @@ export function useAppState() {
     pendingVerification,
     passwordRecovery,
     isAdmin,
+    isPro,
     isAuthenticated: Boolean(currentUser) && !authGateActive && !passwordRecovery && !pendingVerification,
     userEmail: currentUserEmail,
     userDisplayName: currentUserDisplayName,

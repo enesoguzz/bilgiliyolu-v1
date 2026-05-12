@@ -21,6 +21,7 @@ export interface Unit {
   order: number;
   title: string;
   description: string;
+  isPublished?: boolean;
 }
 
 export interface TopicSlide {
@@ -30,6 +31,7 @@ export interface TopicSlide {
   title: string;
   content: string;
   example?: string;
+  isPublished?: boolean;
 }
 
 export interface Question {
@@ -39,6 +41,7 @@ export interface Question {
   options: string[];
   correctIndex: number;
   explanation: string;
+  isPublished?: boolean;
 }
 
 export interface UserProgress {
