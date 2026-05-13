@@ -7,9 +7,10 @@ interface SlidesScreenProps {
   unitId: string;
   slides?: TopicSlide[];
   onComplete: () => void;
+  onHome: () => void;
 }
 
-export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete }: SlidesScreenProps) {
+export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete, onHome }: SlidesScreenProps) {
   const slides = getSlidesForUnit(unitId, sourceSlides);
   const [currentIndex, setCurrentIndex] = useState(0);
 
@@ -40,7 +41,9 @@ export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete 
     <div className="min-h-screen bg-background pb-32 safe-bottom">
       <header className="sticky top-0 z-20 mx-auto flex h-16 max-w-md items-center justify-between border-b border-[#ead9cf] bg-white/95 px-5 backdrop-blur">
         <div className="flex items-center gap-3">
-          <img src="/kecci-logo.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+          <button type="button" onClick={onHome} className="rounded-full active:scale-95" aria-label="Ana ekrana dön">
+            <img src="/kecci-logo-thumb.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+          </button>
           <div>
             <p className="text-[20px] font-extrabold leading-none text-primary">Keççi</p>
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#8b7564]">Konu Anlatımı</p>

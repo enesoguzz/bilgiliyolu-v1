@@ -31,7 +31,7 @@ export default function TutorialScreen({ onSelectGrade }: TutorialScreenProps) {
     <div className="min-h-screen bg-white px-5 py-8 text-[#2f1d14] safe-bottom">
       <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-md flex-col">
         <header className="text-center">
-          <img src="/kecci-logo.png" alt="Keççi logo" className="mx-auto h-36 w-36 object-contain" />
+          <img src="/kecci-logo-thumb.png" alt="Keççi logo" className="mx-auto h-36 w-36 object-contain" />
           <p className="mt-3 text-[12px] font-extrabold uppercase tracking-wider text-[#8b7564]">Hoş geldin</p>
           <h1 className="mt-1 text-[32px] font-extrabold leading-10 text-primary">Keççi'yi Tanıyalım</h1>
           <p className="mt-3 text-[16px] leading-6 text-[#5a4538]">

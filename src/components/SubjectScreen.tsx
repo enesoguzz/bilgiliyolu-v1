@@ -27,6 +27,7 @@ interface SubjectScreenProps {
   onSignOut?: () => void;
   onProFeature?: (feature: string) => void;
   onOpenTests?: () => void;
+  onHome?: () => void;
   isPro?: boolean;
   completedUnits: string[];
   unitScores: Record<string, number>;
@@ -61,6 +62,7 @@ export default function SubjectScreen({
   onSignOut,
   onProFeature,
   onOpenTests,
+  onHome,
   isPro = false,
   completedUnits,
   unitScores,
@@ -107,7 +109,9 @@ export default function SubjectScreen({
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <img src="/kecci-logo.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+          <button type="button" onClick={onHome} className="rounded-full active:scale-95" aria-label="Ana ekrana dön">
+            <img src="/kecci-logo-thumb.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+          </button>
           <div>
             <p className="text-[20px] font-extrabold leading-none text-primary">Keççi</p>
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#8b7564]">{gradeId}. Sınıf</p>

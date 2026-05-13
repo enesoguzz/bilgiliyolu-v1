@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from 'react';
+import { ReactNode, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Bell,
   BookOpen,
@@ -24,19 +24,28 @@ import {
 } from 'lucide-react';
 import { useAppState } from '@/hooks/useAppState';
 import { useContentLibrary } from '@/hooks/useContentLibrary';
-import AdminPanel from '@/components/AdminPanel';
-import AuthScreen from '@/components/AuthScreen';
-import TutorialScreen from '@/components/TutorialScreen';
-import SubjectScreen from '@/components/SubjectScreen';
-import PathScreen from '@/components/PathScreen';
-import SlidesScreen from '@/components/SlidesScreen';
-import QuizScreen from '@/components/QuizScreen';
-import ResultsScreen from '@/components/ResultsScreen';
+
+const AdminPanel = lazy(() => import('@/components/AdminPanel'));
+const AuthScreen = lazy(() => import('@/components/AuthScreen'));
+const TutorialScreen = lazy(() => import('@/components/TutorialScreen'));
+const SubjectScreen = lazy(() => import('@/components/SubjectScreen'));
+const PathScreen = lazy(() => import('@/components/PathScreen'));
+const SlidesScreen = lazy(() => import('@/components/SlidesScreen'));
+const QuizScreen = lazy(() => import('@/components/QuizScreen'));
+const ResultsScreen = lazy(() => import('@/components/ResultsScreen'));
 
 type UtilityScreen = 'profile' | 'settings' | 'tests' | null;
 
 function calculateTotalPoints(unitScores: Record<string, number>): number {
   return Object.values(unitScores).reduce((sum, score) => sum + Math.max(50, score * 5), 0);
+}
+
+function ScreenFallback() {
+  return (
+    <div className="mx-auto flex min-h-screen max-w-md items-center justify-center bg-background px-6">
+      <p className="text-sm font-semibold text-muted-foreground">Ekran hazırlanıyor...</p>
+    </div>
+  );
 }
 
 export default function Index() {
@@ -47,10 +56,30 @@ export default function Index() {
   const totalPoints = calculateTotalPoints(app.progress.unitScores);
   const isAdminScreen = !utilityScreen && app.screen === 'admin' && app.isAdmin;
   const showBottomNav = app.isAuthenticated && !['admin', 'level', 'tutorial', 'onboarding', 'slides', 'quiz', 'results'].includes(app.screen);
+  const unitSlides = useMemo(
+    () => app.unitId ? content.remoteSlides.filter(slide => slide.unitId === app.unitId) : [],
+    [app.unitId, content.remoteSlides],
+  );
+  const unitQuestions = useMemo(
+    () => app.unitId ? content.remoteQuestions.filter(question => question.unitId === app.unitId) : [],
+    [app.unitId, content.remoteQuestions],
+  );
 
   useEffect(() => {
     setUtilityScreen(null);
   }, [app.screen]);
+
+  useEffect(() => {
+    if (app.unitId && (app.screen === 'slides' || app.screen === 'quiz')) {
+      void content.loadUnitContent(app.unitId);
+    }
+  }, [app.screen, app.unitId, content.loadUnitContent]);
+
+  useEffect(() => {
+    if (isAdminScreen) {
+      void content.refreshContent({ includeAll: true });
+    }
+  }, [content.refreshContent, isAdminScreen]);
 
   if (app.authLoading && !app.pendingVerification) {
     return (
@@ -63,22 +92,24 @@ export default function Index() {
   if (!app.isAuthenticated) {
     return (
       <div className="mx-auto min-h-screen max-w-md">
-        <AuthScreen
-          loading={app.authLoading}
-          error={app.authError}
-          notice={app.authNotice}
-          passwordRecovery={app.passwordRecovery}
-          pendingVerification={app.pendingVerification}
-          onBeginPasswordVerification={app.beginPasswordVerification}
-          onSignUp={app.signUp}
-          onResetPassword={app.resetPassword}
-          onUpdatePassword={app.updatePassword}
-          onSendPhoneOtp={app.sendPhoneOtp}
-          onVerifyPhoneOtp={app.verifyPhoneOtp}
-          onVerifyEmailOtp={app.verifyEmailOtp}
-          onClearPendingVerification={app.clearPendingVerification}
-          onOAuthSignIn={app.signInWithOAuth}
-        />
+        <Suspense fallback={<ScreenFallback />}>
+          <AuthScreen
+            loading={app.authLoading}
+            error={app.authError}
+            notice={app.authNotice}
+            passwordRecovery={app.passwordRecovery}
+            pendingVerification={app.pendingVerification}
+            onBeginPasswordVerification={app.beginPasswordVerification}
+            onSignUp={app.signUp}
+            onResetPassword={app.resetPassword}
+            onUpdatePassword={app.updatePassword}
+            onSendPhoneOtp={app.sendPhoneOtp}
+            onVerifyPhoneOtp={app.verifyPhoneOtp}
+            onVerifyEmailOtp={app.verifyEmailOtp}
+            onClearPendingVerification={app.clearPendingVerification}
+            onOAuthSignIn={app.signInWithOAuth}
+          />
+        </Suspense>
       </div>
     );
   }
@@ -101,76 +132,99 @@ export default function Index() {
         </div>
       )}
 
-      {utilityScreen === 'profile' && app.gradeId && (
-        <ProfileScreen
-          gradeId={app.gradeId}
-          userEmail={app.userEmail}
-          displayName={app.userDisplayName}
-          totalPoints={totalPoints}
-          isPro={app.isPro}
-          onProFeature={setProPrompt}
-        />
-      )}
-      {utilityScreen === 'tests' && (
-        <TestsScreen isPro={app.isPro} onProFeature={setProPrompt} />
-      )}
-      {utilityScreen === 'settings' && (
-        <SettingsScreen onSignOut={app.signOut} isAdmin={app.isAdmin} onAdmin={app.goToAdmin} />
-      )}
-      {!utilityScreen && app.screen === 'admin' && app.isAdmin && (
-        <AdminPanel
-          units={content.units}
-          remoteUnits={content.remoteUnits}
-          remoteSlides={content.remoteSlides}
-          remoteQuestions={content.remoteQuestions}
-          onBack={app.gradeId ? app.goToSubjects : app.goToOnboarding}
-          onRefresh={content.refreshContent}
-        />
-      )}
-      {!utilityScreen && (app.screen === 'level' || app.screen === 'tutorial' || app.screen === 'onboarding') && (
-        <TutorialScreen onSelectGrade={app.selectGrade} />
-      )}
-      {!utilityScreen && app.screen === 'subjects' && app.gradeId && (
-        <SubjectScreen
-          gradeId={app.gradeId}
-          onSelectSubject={app.selectSubject}
-          onBack={app.goToOnboarding}
-          isAdmin={app.isAdmin}
-          onAdmin={app.goToAdmin}
-          onSignOut={app.signOut}
-          onProFeature={setProPrompt}
-          onOpenTests={() => setUtilityScreen('tests')}
-          isPro={app.isPro}
-          completedUnits={app.progress.completedUnits}
-          unitScores={app.progress.unitScores}
-          units={content.units}
-          totalPoints={totalPoints}
-        />
-      )}
-      {!utilityScreen && app.screen === 'path' && app.gradeId && app.subjectId && (
-        <PathScreen
-          gradeId={app.gradeId}
-          subjectId={app.subjectId}
-          completedUnits={app.progress.completedUnits}
-          unitScores={app.progress.unitScores}
-          units={content.units}
-          onSelectUnit={app.selectUnit}
-          onBack={app.goToSubjects}
-        />
-      )}
-      {!utilityScreen && app.screen === 'slides' && app.unitId && (
-        <SlidesScreen unitId={app.unitId} slides={content.slides} onComplete={app.startQuiz} />
-      )}
-      {!utilityScreen && app.screen === 'quiz' && app.unitId && (
-        <QuizScreen unitId={app.unitId} questions={content.questions} onComplete={app.completeQuiz} onExit={app.goToPath} />
-      )}
-      {!utilityScreen && app.screen === 'results' && (
-        <ResultsScreen
-          score={app.progress.unitScores[app.unitId!] || 0}
-          onContinue={app.goToPath}
-          onHome={app.goToSubjects}
-        />
-      )}
+      <Suspense fallback={<ScreenFallback />}>
+        {utilityScreen === 'profile' && app.gradeId && (
+          <ProfileScreen
+            gradeId={app.gradeId}
+            userEmail={app.userEmail}
+            displayName={app.userDisplayName}
+            totalPoints={totalPoints}
+            isPro={app.isPro}
+            onProFeature={setProPrompt}
+            onHome={() => {
+              setUtilityScreen(null);
+              app.goToSubjects();
+            }}
+          />
+        )}
+        {utilityScreen === 'tests' && (
+          <TestsScreen
+            isPro={app.isPro}
+            onProFeature={setProPrompt}
+            onHome={() => {
+              setUtilityScreen(null);
+              app.goToSubjects();
+            }}
+          />
+        )}
+        {utilityScreen === 'settings' && (
+          <SettingsScreen
+            onSignOut={app.signOut}
+            isAdmin={app.isAdmin}
+            onAdmin={app.goToAdmin}
+            onHome={() => {
+              setUtilityScreen(null);
+              app.goToSubjects();
+            }}
+          />
+        )}
+        {!utilityScreen && app.screen === 'admin' && app.isAdmin && (
+          <AdminPanel
+            units={content.units}
+            remoteUnits={content.remoteUnits}
+            remoteSlides={content.remoteSlides}
+            remoteQuestions={content.remoteQuestions}
+            onBack={app.gradeId ? app.goToSubjects : app.goToOnboarding}
+            onRefresh={() => content.refreshContent({ includeAll: true })}
+          />
+        )}
+        {!utilityScreen && (app.screen === 'level' || app.screen === 'tutorial' || app.screen === 'onboarding') && (
+          <TutorialScreen onSelectGrade={app.selectGrade} />
+        )}
+        {!utilityScreen && app.screen === 'subjects' && app.gradeId && (
+          <SubjectScreen
+            gradeId={app.gradeId}
+            onSelectSubject={app.selectSubject}
+            onBack={app.goToOnboarding}
+            isAdmin={app.isAdmin}
+            onAdmin={app.goToAdmin}
+            onSignOut={app.signOut}
+            onHome={app.goToSubjects}
+            onProFeature={setProPrompt}
+            onOpenTests={() => setUtilityScreen('tests')}
+            isPro={app.isPro}
+            completedUnits={app.progress.completedUnits}
+            unitScores={app.progress.unitScores}
+            units={content.units}
+            totalPoints={totalPoints}
+          />
+        )}
+        {!utilityScreen && app.screen === 'path' && app.gradeId && app.subjectId && (
+          <PathScreen
+            gradeId={app.gradeId}
+            subjectId={app.subjectId}
+            completedUnits={app.progress.completedUnits}
+            unitScores={app.progress.unitScores}
+            units={content.units}
+            onSelectUnit={app.selectUnit}
+            onBack={app.goToSubjects}
+            onHome={app.goToSubjects}
+          />
+        )}
+        {!utilityScreen && app.screen === 'slides' && app.unitId && (
+          <SlidesScreen unitId={app.unitId} slides={unitSlides.length ? unitSlides : undefined} onComplete={app.startQuiz} onHome={app.goToSubjects} />
+        )}
+        {!utilityScreen && app.screen === 'quiz' && app.unitId && (
+          <QuizScreen unitId={app.unitId} questions={unitQuestions.length ? unitQuestions : undefined} onComplete={app.completeQuiz} onExit={app.goToPath} onHome={app.goToSubjects} />
+        )}
+        {!utilityScreen && app.screen === 'results' && (
+          <ResultsScreen
+            score={app.progress.unitScores[app.unitId!] || 0}
+            onContinue={app.goToPath}
+            onHome={app.goToSubjects}
+          />
+        )}
+      </Suspense>
       {showBottomNav && (
         <BottomNav
           active={utilityScreen ?? (app.screen === 'subjects' ? 'subjects' : 'journey')}
@@ -294,10 +348,12 @@ function ProFeatureModal({
   );
 }
 
-function UtilityHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function UtilityHeader({ title, subtitle, onHome }: { title: string; subtitle: string; onHome?: () => void }) {
   return (
     <header className="sticky top-0 z-20 mx-auto flex h-16 max-w-md items-center gap-3 border-b border-[#ead9cf] bg-white/95 px-5 backdrop-blur">
-      <img src="/kecci-logo.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+      <button type="button" onClick={onHome} className="rounded-2xl active:scale-95" aria-label="Ana ekrana dön">
+        <img src="/kecci-logo-thumb.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+      </button>
       <div>
         <p className="text-[20px] font-extrabold leading-none text-primary">{title}</p>
         <p className="text-[11px] font-bold uppercase tracking-wider text-[#8b7564]">{subtitle}</p>
@@ -306,7 +362,15 @@ function UtilityHeader({ title, subtitle }: { title: string; subtitle: string })
   );
 }
 
-function TestsScreen({ isPro, onProFeature }: { isPro: boolean; onProFeature: (feature: string) => void }) {
+function TestsScreen({
+  isPro,
+  onProFeature,
+  onHome,
+}: {
+  isPro: boolean;
+  onProFeature: (feature: string) => void;
+  onHome: () => void;
+}) {
   const tests = [
     { title: '1. Sınıf Genel Deneme', questions: 20, duration: '30 dk', score: null },
     { title: 'Türkçe Kazanım Denemesi', questions: 12, duration: '18 dk', score: 86 },
@@ -365,7 +429,7 @@ function TestsScreen({ isPro, onProFeature }: { isPro: boolean; onProFeature: (f
 
   return (
     <div className="min-h-screen bg-background pb-40 safe-bottom">
-      <UtilityHeader title="Denemelerim" subtitle={isPro ? 'Pro deneme merkezi' : 'Pro özellik'} />
+      <UtilityHeader title="Denemelerim" subtitle={isPro ? 'Pro deneme merkezi' : 'Pro özellik'} onHome={onHome} />
       <main className="mx-auto max-w-md px-5 pt-6">
         {!isPro && (
           <section className="rounded-3xl border border-[#d9c2b8] bg-[#fdf9f3] p-6 shadow-[0_3px_0_0_#e0d7d0]">
@@ -510,6 +574,7 @@ function ProfileScreen({
   totalPoints,
   isPro,
   onProFeature,
+  onHome,
 }: {
   gradeId: number;
   userEmail: string | null;
@@ -517,21 +582,22 @@ function ProfileScreen({
   totalPoints: number;
   isPro: boolean;
   onProFeature: (feature: string) => void;
+  onHome: () => void;
 }) {
   const mascotScrollRef = useRef<HTMLDivElement>(null);
   const [saveNotice, setSaveNotice] = useState(false);
   const [selectedMascot, setSelectedMascot] = useState('Keçi');
   const [selectedAccessory, setSelectedAccessory] = useState('Gözlük');
   const mascots = [
-    { name: 'Keçi', src: '/mascots/ankara-kecisi.png', pro: false },
-    { name: 'Aslan', src: '/mascots/aslan.png', pro: true },
-    { name: 'Kartal', src: '/mascots/kartal.png', pro: true },
-    { name: 'Kanarya', src: '/mascots/kanarya.png', pro: true },
-    { name: 'Hamsi', src: '/mascots/hamsi.png', pro: true },
-    { name: 'Alageyik', src: '/mascots/alageyik.png', pro: true },
-    { name: 'Telli Turna', src: '/mascots/telli-turna.png', pro: true },
-    { name: 'Yaban Kazı', src: '/mascots/yaban-kazi.png', pro: true },
-    { name: 'İnci Kefali', src: '/mascots/inci-kefali.png', pro: true },
+    { name: 'Keçi', src: '/mascots/thumbs/ankara-kecisi.png', pro: false },
+    { name: 'Aslan', src: '/mascots/thumbs/aslan.png', pro: true },
+    { name: 'Kartal', src: '/mascots/thumbs/kartal.png', pro: true },
+    { name: 'Kanarya', src: '/mascots/thumbs/kanarya.png', pro: true },
+    { name: 'Hamsi', src: '/mascots/thumbs/hamsi.png', pro: true },
+    { name: 'Alageyik', src: '/mascots/thumbs/alageyik.png', pro: true },
+    { name: 'Telli Turna', src: '/mascots/thumbs/telli-turna.png', pro: true },
+    { name: 'Yaban Kazı', src: '/mascots/thumbs/yaban-kazi.png', pro: true },
+    { name: 'İnci Kefali', src: '/mascots/thumbs/inci-kefali.png', pro: true },
   ];
   const scrollMascots = (direction: 'left' | 'right') => {
     mascotScrollRef.current?.scrollBy({
@@ -542,15 +608,16 @@ function ProfileScreen({
   const profileName = displayName || userEmail?.split('@')[0] || 'Keççi Öğrencisi';
   const nextRankPoints = 1500;
   const rankProgress = Math.min(100, Math.round((totalPoints / nextRankPoints) * 100));
+  const selectedMascotData = mascots.find(mascot => mascot.name === selectedMascot) ?? mascots[0];
 
   return (
-    <div className="min-h-screen bg-background pb-44 safe-bottom">
-      <UtilityHeader title="Profil" subtitle="Maskot ve ilerleme" />
-      <main className="mx-auto max-w-md space-y-8 px-5 pt-6">
+    <div className="min-h-screen bg-background pb-56 safe-bottom">
+      <UtilityHeader title="Profil" subtitle="Maskot ve ilerleme" onHome={onHome} />
+      <main className="mx-auto max-w-md space-y-8 px-5 pb-32 pt-6">
         <section className="flex flex-col items-center text-center">
           <div className="relative">
             <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-[#ffb694] bg-white p-1">
-              <img src="/mascots/ankara-kecisi.png" alt="Seçili Keççi maskotu" className="h-full w-full rounded-full object-contain" />
+              <img src={selectedMascotData.src} alt={`Seçili ${selectedMascotData.name} maskotu`} className="h-full w-full rounded-full object-contain" decoding="async" />
             </div>
             <div className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-[#f8bb73] text-[#351000] shadow-sm">
               <Trophy className="h-4 w-4 fill-[#351000]" />
@@ -613,7 +680,7 @@ function ProfileScreen({
                   selectedMascot === mascot.name ? 'border-2 border-primary shadow-sm' : 'border border-[#d9c2b8]'
                 }`}
               >
-                <img src={mascot.src} alt={mascot.name} className={`mb-1 h-16 w-16 object-contain ${mascot.pro && !isPro ? 'grayscale-[0.2]' : ''}`} />
+                <img src={mascot.src} alt={mascot.name} className={`mb-1 h-16 w-16 object-contain ${mascot.pro && !isPro ? 'grayscale-[0.2]' : ''}`} loading="lazy" decoding="async" />
                 <span className={`mt-1 text-[12px] font-extrabold ${selectedMascot === mascot.name ? 'text-primary' : 'text-[#54433c]'}`}>{mascot.name}</span>
                 {selectedMascot === mascot.name && (
                   <span className="absolute -right-2 -top-2 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-white">
@@ -742,10 +809,20 @@ function WardrobeCard({
   );
 }
 
-function SettingsScreen({ onSignOut, isAdmin, onAdmin }: { onSignOut: () => void; isAdmin: boolean; onAdmin: () => void }) {
+function SettingsScreen({
+  onSignOut,
+  isAdmin,
+  onAdmin,
+  onHome,
+}: {
+  onSignOut: () => void;
+  isAdmin: boolean;
+  onAdmin: () => void;
+  onHome: () => void;
+}) {
   return (
     <div className="min-h-screen bg-background pb-40 safe-bottom">
-      <UtilityHeader title="Ayarlar" subtitle="Hesap ve tercihler" />
+      <UtilityHeader title="Ayarlar" subtitle="Hesap ve tercihler" onHome={onHome} />
       <main className="mx-auto max-w-md px-5 pt-6">
         <div className="space-y-3">
           <SettingsRow icon={<Palette className="h-5 w-5" />} title="Tema" description="Keççi kahverengi ve beyaz tema" />

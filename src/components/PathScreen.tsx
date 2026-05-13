@@ -10,6 +10,7 @@ interface PathScreenProps {
   units?: Unit[];
   onSelectUnit: (unitId: string) => void;
   onBack: () => void;
+  onHome?: () => void;
 }
 
 const subjectNames: Record<string, string> = {
@@ -29,6 +30,7 @@ export default function PathScreen({
   units: sourceUnits,
   onSelectUnit,
   onBack,
+  onHome,
 }: PathScreenProps) {
   const units = getUnitsForSubjectAndGrade(subjectId, gradeId, sourceUnits);
   const subject = subjects.find(item => item.id === subjectId);
@@ -54,9 +56,14 @@ export default function PathScreen({
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
-          <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#ffdbcc]">
-            <img src="/kecci-logo.png" alt="Keççi logo" className="h-8 w-8 object-contain" />
-          </span>
+          <button
+            type="button"
+            onClick={onHome}
+            className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-[#ffdbcc] active:scale-95"
+            aria-label="Ana ekrana dön"
+          >
+            <img src="/kecci-logo-thumb.png" alt="Keççi logo" className="h-8 w-8 object-contain" />
+          </button>
           <div>
             <p className="text-[20px] font-extrabold leading-none text-primary">Keççi</p>
             <p className="text-[11px] font-bold uppercase tracking-wider text-[#86736b]">{subjectName}</p>
@@ -140,7 +147,7 @@ export default function PathScreen({
 
                       {index === 0 && (
                         <span className="absolute -right-12 -top-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#d9c2b8] bg-white p-1 shadow-md">
-                          <img src="/mascots/ankara-kecisi.png" alt="Keççi maskotu" className="h-full w-full object-contain" />
+                          <img src="/mascots/thumbs/ankara-kecisi.png" alt="Keççi maskotu" className="h-full w-full object-contain" loading="lazy" decoding="async" />
                         </span>
                       )}
                     </span>

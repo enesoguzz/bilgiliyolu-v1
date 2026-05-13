@@ -22,7 +22,9 @@ export default function ResultsScreen({ score, onContinue, onHome }: ResultsScre
     <div className="flex min-h-screen flex-col items-center bg-background pb-12 safe-bottom">
       <header className="sticky top-0 z-20 mx-auto flex h-16 w-full max-w-md items-center justify-between border-b border-[#ead9cf] bg-white/95 px-5 backdrop-blur">
         <div className="flex items-center gap-3">
-          <img src="/kecci-logo.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+          <button type="button" onClick={onHome} className="rounded-full active:scale-95" aria-label="Ana ekrana dön">
+            <img src="/kecci-logo-thumb.png" alt="Keççi logo" className="h-10 w-10 rounded-full object-contain" />
+          </button>
           <p className="text-[20px] font-extrabold text-primary">Keççi</p>
         </div>
       </header>
@@ -37,7 +39,7 @@ export default function ResultsScreen({ score, onContinue, onHome }: ResultsScre
 
         <div className="relative mb-7 flex aspect-square w-full max-w-[260px] items-center justify-center">
           <div className="absolute inset-0 rounded-full bg-[#ffddb9]/30 blur-3xl" />
-          <img src="/kecci-logo.png" alt="Keççi başarı maskotu" className="relative z-10 h-full w-full object-contain" />
+          <img src="/kecci-logo-thumb.png" alt="Keççi başarı maskotu" className="relative z-10 h-full w-full object-contain" />
         </div>
 
         <section className="mb-7 grid w-full grid-cols-2 gap-3">

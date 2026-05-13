@@ -8,6 +8,7 @@ interface QuizScreenProps {
   questions?: Question[];
   onComplete: (score: number) => void;
   onExit: () => void;
+  onHome: () => void;
 }
 
 function shuffleAndPick(questions: Question[], count: number): Question[] {
@@ -15,7 +16,7 @@ function shuffleAndPick(questions: Question[], count: number): Question[] {
   return shuffled.slice(0, count);
 }
 
-export default function QuizScreen({ unitId, questions: sourceQuestions, onComplete, onExit }: QuizScreenProps) {
+export default function QuizScreen({ unitId, questions: sourceQuestions, onComplete, onExit, onHome }: QuizScreenProps) {
   const questions = useMemo(() => shuffleAndPick(getQuestionsForUnit(unitId, sourceQuestions), 7), [sourceQuestions, unitId]);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
@@ -67,7 +68,10 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
           >
             <X className="h-5 w-5" />
           </button>
-          <span className="text-[20px] font-extrabold text-primary">Keççi</span>
+          <button type="button" onClick={onHome} className="flex items-center gap-2 rounded-2xl active:scale-95" aria-label="Ana ekrana dön">
+            <img src="/kecci-logo-thumb.png" alt="Keççi logo" className="h-8 w-8 rounded-full object-contain" />
+            <span className="text-[20px] font-extrabold text-primary">Keççi</span>
+          </button>
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-[#e6e2dc] px-3 py-1 text-[#5a4538]">
           <Timer className="h-4 w-4" />

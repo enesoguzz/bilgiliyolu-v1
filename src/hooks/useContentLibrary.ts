@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { mergeQuestions, mergeSlides, mergeUnits, questions, slides, units } from '@/data/curriculum';
+import { mergeUnits } from '@/data/curriculum';
 import { Question, TopicSlide, Unit } from '@/types/curriculum';
 import { supabase } from '@/lib/supabase';
 
@@ -69,31 +69,51 @@ function rowToQuestion(row: QuestionRow): Question {
   };
 }
 
+type RefreshContentOptions = {
+  includeAll?: boolean;
+};
+
 export function useContentLibrary(isAuthenticated: boolean) {
   const [remoteUnits, setRemoteUnits] = useState<Unit[]>([]);
   const [remoteSlides, setRemoteSlides] = useState<TopicSlide[]>([]);
   const [remoteQuestions, setRemoteQuestions] = useState<Question[]>([]);
+  const [loadedUnitIds, setLoadedUnitIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const refreshContent = useCallback(async () => {
+  const refreshContent = useCallback(async (options: RefreshContentOptions = {}) => {
     if (!supabase || !isAuthenticated) {
       setRemoteUnits([]);
       setRemoteSlides([]);
       setRemoteQuestions([]);
+      setLoadedUnitIds([]);
       return;
     }
 
     setLoading(true);
     setError(null);
 
-    const [unitResult, slideResult, questionResult] = await Promise.all([
-      supabase
-        .from('content_units')
-        .select('id, subject_id, grade_id, order_index, title, description, is_published')
-        .order('grade_id')
-        .order('subject_id')
-        .order('order_index'),
+    const unitResult = await supabase
+      .from('content_units')
+      .select('id, subject_id, grade_id, order_index, title, description, is_published')
+      .order('grade_id')
+      .order('subject_id')
+      .order('order_index');
+
+    if (unitResult.error) {
+      setError(unitResult.error.message);
+      setLoading(false);
+      return;
+    }
+
+    setRemoteUnits(((unitResult.data ?? []) as UnitRow[]).map(rowToUnit));
+
+    if (!options.includeAll) {
+      setLoading(false);
+      return;
+    }
+
+    const [slideResult, questionResult] = await Promise.all([
       supabase
         .from('content_slides')
         .select('id, unit_id, order_index, title, content, example, is_published')
@@ -106,7 +126,7 @@ export function useContentLibrary(isAuthenticated: boolean) {
         .order('id'),
     ]);
 
-    const failure = unitResult.error ?? slideResult.error ?? questionResult.error;
+    const failure = slideResult.error ?? questionResult.error;
 
     if (failure) {
       setError(failure.message);
@@ -114,11 +134,53 @@ export function useContentLibrary(isAuthenticated: boolean) {
       return;
     }
 
-    setRemoteUnits(((unitResult.data ?? []) as UnitRow[]).map(rowToUnit));
     setRemoteSlides(((slideResult.data ?? []) as SlideRow[]).map(rowToSlide));
     setRemoteQuestions(((questionResult.data ?? []) as QuestionRow[]).map(rowToQuestion));
+    setLoadedUnitIds(Array.from(new Set([
+      ...((slideResult.data ?? []) as SlideRow[]).map(row => row.unit_id),
+      ...((questionResult.data ?? []) as QuestionRow[]).map(row => row.unit_id),
+    ])));
     setLoading(false);
   }, [isAuthenticated]);
+
+  const loadUnitContent = useCallback(async (unitId: string) => {
+    if (!supabase || !isAuthenticated || loadedUnitIds.includes(unitId)) return;
+
+    setLoading(true);
+    setError(null);
+
+    const [slideResult, questionResult] = await Promise.all([
+      supabase
+        .from('content_slides')
+        .select('id, unit_id, order_index, title, content, example, is_published')
+        .eq('unit_id', unitId)
+        .order('order_index'),
+      supabase
+        .from('content_questions')
+        .select('id, unit_id, text, options, correct_index, explanation, is_published')
+        .eq('unit_id', unitId)
+        .order('id'),
+    ]);
+
+    const failure = slideResult.error ?? questionResult.error;
+
+    if (failure) {
+      setError(failure.message);
+      setLoading(false);
+      return;
+    }
+
+    setRemoteSlides(previous => [
+      ...previous.filter(slide => slide.unitId !== unitId),
+      ...((slideResult.data ?? []) as SlideRow[]).map(rowToSlide),
+    ]);
+    setRemoteQuestions(previous => [
+      ...previous.filter(question => question.unitId !== unitId),
+      ...((questionResult.data ?? []) as QuestionRow[]).map(rowToQuestion),
+    ]);
+    setLoadedUnitIds(previous => previous.includes(unitId) ? previous : [...previous, unitId]);
+    setLoading(false);
+  }, [isAuthenticated, loadedUnitIds]);
 
   useEffect(() => {
     refreshContent();
@@ -126,8 +188,6 @@ export function useContentLibrary(isAuthenticated: boolean) {
 
   const merged = useMemo(() => ({
     units: mergeUnits(remoteUnits),
-    slides: mergeSlides(remoteSlides),
-    questions: mergeQuestions(remoteQuestions),
     remoteUnits,
     remoteSlides,
     remoteQuestions,
@@ -138,11 +198,8 @@ export function useContentLibrary(isAuthenticated: boolean) {
     loading,
     error,
     refreshContent,
+    loadUnitContent,
+    loadedUnitIds,
     hasRemoteContent: remoteUnits.length > 0 || remoteSlides.length > 0 || remoteQuestions.length > 0,
-    defaults: {
-      units,
-      slides,
-      questions,
-    },
   };
 }

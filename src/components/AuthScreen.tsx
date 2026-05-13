@@ -381,7 +381,7 @@ function AuthLayout({ children }: { children: ReactNode }) {
       <main className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-[632px] flex-col justify-center sm:min-h-[calc(100vh-7rem)]">
         <header className="mb-10 text-center sm:mb-16">
           <img
-            src="/kecci-logo.png"
+            src="/kecci-logo-thumb.png"
             alt="Keççi logo"
             className="mx-auto h-52 w-52 object-contain sm:h-64 sm:w-64"
           />

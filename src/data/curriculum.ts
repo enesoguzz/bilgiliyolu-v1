@@ -153,7 +153,12 @@ function makeSlidesForUnit(unit: Unit): TopicSlide[] {
   ];
 }
 
-export const slides: TopicSlide[] = units.flatMap(makeSlidesForUnit);
+let allSlidesCache: TopicSlide[] | null = null;
+
+function getDefaultSlides(): TopicSlide[] {
+  allSlidesCache ??= units.flatMap(makeSlidesForUnit);
+  return allSlidesCache;
+}
 
 function makeQuestionsForUnit(unit: Unit): Question[] {
   const subject = getSeed(unit.subjectId);
@@ -255,7 +260,12 @@ function makeQuestionsForUnit(unit: Unit): Question[] {
   ];
 }
 
-export const questions: Question[] = units.flatMap(makeQuestionsForUnit);
+let allQuestionsCache: Question[] | null = null;
+
+function getDefaultQuestions(): Question[] {
+  allQuestionsCache ??= units.flatMap(makeQuestionsForUnit);
+  return allQuestionsCache;
+}
 
 function mergeById<T extends { id: string }>(baseItems: T[], overrideItems: T[]): T[] {
   const merged = new Map<string, T>();
@@ -271,11 +281,11 @@ export function mergeUnits(remoteUnits: Unit[]): Unit[] {
 }
 
 export function mergeSlides(remoteSlides: TopicSlide[]): TopicSlide[] {
-  return mergeById(slides, remoteSlides);
+  return mergeById(getDefaultSlides(), remoteSlides);
 }
 
 export function mergeQuestions(remoteQuestions: Question[]): Question[] {
-  return mergeById(questions, remoteQuestions);
+  return mergeById(getDefaultQuestions(), remoteQuestions);
 }
 
 export function getSubjectsForGrade(gradeId: number): Subject[] {
@@ -288,10 +298,16 @@ export function getUnitsForSubjectAndGrade(subjectId: string, gradeId: number, s
     .sort((a, b) => a.order - b.order);
 }
 
-export function getSlidesForUnit(unitId: string, sourceSlides: TopicSlide[] = slides): TopicSlide[] {
-  return sourceSlides.filter(slide => slide.unitId === unitId).sort((a, b) => a.order - b.order);
+export function getSlidesForUnit(unitId: string, sourceSlides?: TopicSlide[]): TopicSlide[] {
+  if (sourceSlides) return sourceSlides.filter(slide => slide.unitId === unitId).sort((a, b) => a.order - b.order);
+
+  const unit = units.find(item => item.id === unitId);
+  return unit ? makeSlidesForUnit(unit) : [];
 }
 
-export function getQuestionsForUnit(unitId: string, sourceQuestions: Question[] = questions): Question[] {
-  return sourceQuestions.filter(question => question.unitId === unitId);
+export function getQuestionsForUnit(unitId: string, sourceQuestions?: Question[]): Question[] {
+  if (sourceQuestions) return sourceQuestions.filter(question => question.unitId === unitId);
+
+  const unit = units.find(item => item.id === unitId);
+  return unit ? makeQuestionsForUnit(unit) : [];
 }
