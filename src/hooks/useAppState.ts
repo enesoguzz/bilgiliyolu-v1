@@ -35,6 +35,8 @@ type ProfileRow = {
   is_pro: boolean | null;
   subscription_status: string | null;
   pro_expires_at: string | null;
+  mascot: string | null;
+  accessory: string | null;
 };
 
 type VerificationStartResult = {
@@ -50,6 +52,11 @@ export type PendingVerification = {
   emailOtpType?: 'email' | 'signup';
 } | null;
 
+export type ProfilePreferences = {
+  mascot: string;
+  accessory: string;
+};
+
 const STORAGE_KEY = 'bilgi-yolu-progress';
 const AUTH_REDIRECT_URL = cleanRedirectUrl(import.meta.env.VITE_AUTH_REDIRECT_URL as string | undefined);
 
@@ -58,6 +65,11 @@ const initialProgress: UserProgress = {
   completedUnits: [],
   unitScores: {},
   currentUnit: null,
+};
+
+const defaultProfilePreferences: ProfilePreferences = {
+  mascot: 'Keçi',
+  accessory: 'Gözlük',
 };
 
 function normalizeProgress(progress: Partial<UserProgress> | null | undefined): UserProgress {
@@ -219,6 +231,7 @@ export function useAppState() {
   const [passwordRecovery, setPasswordRecovery] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [isPro, setIsPro] = useState(false);
+  const [profilePreferences, setProfilePreferences] = useState<ProfilePreferences>(defaultProfilePreferences);
   const currentUser = session?.user ?? null;
   const currentUserId = currentUser?.id ?? null;
   const currentUserEmail = getUserEmail(currentUser);
@@ -314,6 +327,12 @@ export function useAppState() {
         .eq('id', currentUserId)
         .maybeSingle();
 
+      const { data: preferenceData } = await supabase
+        .from('profiles')
+        .select('mascot, accessory')
+        .eq('id', currentUserId)
+        .maybeSingle();
+
       if (!active) return;
 
       if (error) {
@@ -328,6 +347,14 @@ export function useAppState() {
         const profile = profileData as ProfileRow | null;
         setIsAdmin(Boolean(profile?.is_admin));
         setIsPro(isProfilePro(profile));
+      }
+
+      if (preferenceData) {
+        const preferences = preferenceData as Pick<ProfileRow, 'mascot' | 'accessory'>;
+        setProfilePreferences({
+          mascot: preferences.mascot || defaultProfilePreferences.mascot,
+          accessory: preferences.accessory || defaultProfilePreferences.accessory,
+        });
       }
 
       if (data) {
@@ -732,6 +759,7 @@ export function useAppState() {
     setRemoteReady(false);
     setIsAdmin(false);
     setIsPro(false);
+    setProfilePreferences(defaultProfilePreferences);
     setAuthGateActive(false);
     setPendingVerification(null);
     setState(current => ({
@@ -744,6 +772,27 @@ export function useAppState() {
       progress: initialProgress,
     }));
   }, []);
+
+  const saveProfilePreferences = useCallback(async (preferences: ProfilePreferences): Promise<boolean> => {
+    setProfilePreferences(preferences);
+
+    if (!supabase || !currentUserId) return false;
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({
+        mascot: preferences.mascot,
+        accessory: preferences.accessory,
+      })
+      .eq('id', currentUserId);
+
+    if (error) {
+      setAuthError(translateAuthError(error.message));
+      return false;
+    }
+
+    return true;
+  }, [currentUserId]);
 
   const clearPendingVerification = useCallback(() => {
     setPendingVerification(null);
@@ -852,6 +901,7 @@ export function useAppState() {
     passwordRecovery,
     isAdmin,
     isPro,
+    profilePreferences,
     isAuthenticated: Boolean(currentUser) && !authGateActive && !passwordRecovery && !pendingVerification,
     userEmail: currentUserEmail,
     userDisplayName: currentUserDisplayName,
@@ -867,6 +917,7 @@ export function useAppState() {
     clearPendingVerification,
     signInWithOAuth,
     signOut,
+    saveProfilePreferences,
     selectLevel,
     selectGrade,
     selectSubject,

@@ -22,7 +22,7 @@ import {
   User,
   X,
 } from 'lucide-react';
-import { useAppState } from '@/hooks/useAppState';
+import { type ProfilePreferences, useAppState } from '@/hooks/useAppState';
 import { useContentLibrary } from '@/hooks/useContentLibrary';
 
 const AdminPanel = lazy(() => import('@/components/AdminPanel'));
@@ -38,6 +38,15 @@ type UtilityScreen = 'profile' | 'settings' | 'tests' | null;
 
 function calculateTotalPoints(unitScores: Record<string, number>): number {
   return Object.values(unitScores).reduce((sum, score) => sum + Math.max(50, score * 5), 0);
+}
+
+function getProfilePreferencesKey(userEmail: string | null): string {
+  return `kecci-profile-preferences:${userEmail ?? 'guest'}`;
+}
+
+function writeProfilePreferences(key: string, preferences: ProfilePreferences) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(key, JSON.stringify(preferences));
 }
 
 function ScreenFallback() {
@@ -138,10 +147,12 @@ export default function Index() {
             gradeId={app.gradeId}
             userEmail={app.userEmail}
             displayName={app.userDisplayName}
-            totalPoints={totalPoints}
-            isPro={app.isPro}
-            onProFeature={setProPrompt}
-            onHome={() => {
+          totalPoints={totalPoints}
+          isPro={app.isPro}
+          savedPreferences={app.profilePreferences}
+          onSavePreferences={app.saveProfilePreferences}
+          onProFeature={setProPrompt}
+          onHome={() => {
               setUtilityScreen(null);
               app.goToSubjects();
             }}
@@ -573,6 +584,8 @@ function ProfileScreen({
   displayName,
   totalPoints,
   isPro,
+  savedPreferences,
+  onSavePreferences,
   onProFeature,
   onHome,
 }: {
@@ -581,13 +594,16 @@ function ProfileScreen({
   displayName: string | null;
   totalPoints: number;
   isPro: boolean;
+  savedPreferences: ProfilePreferences;
+  onSavePreferences: (preferences: ProfilePreferences) => Promise<boolean>;
   onProFeature: (feature: string) => void;
   onHome: () => void;
 }) {
   const mascotScrollRef = useRef<HTMLDivElement>(null);
+  const preferencesKey = getProfilePreferencesKey(userEmail);
   const [saveNotice, setSaveNotice] = useState(false);
-  const [selectedMascot, setSelectedMascot] = useState('Keçi');
-  const [selectedAccessory, setSelectedAccessory] = useState('Gözlük');
+  const [selectedMascot, setSelectedMascot] = useState(() => savedPreferences.mascot);
+  const [selectedAccessory, setSelectedAccessory] = useState(() => savedPreferences.accessory);
   const mascots = [
     { name: 'Keçi', src: '/mascots/thumbs/ankara-kecisi.png', pro: false },
     { name: 'Aslan', src: '/mascots/thumbs/aslan.png', pro: true },
@@ -609,6 +625,11 @@ function ProfileScreen({
   const nextRankPoints = 1500;
   const rankProgress = Math.min(100, Math.round((totalPoints / nextRankPoints) * 100));
   const selectedMascotData = mascots.find(mascot => mascot.name === selectedMascot) ?? mascots[0];
+
+  useEffect(() => {
+    setSelectedMascot(savedPreferences.mascot);
+    setSelectedAccessory(savedPreferences.accessory);
+  }, [savedPreferences.accessory, savedPreferences.mascot]);
 
   return (
     <div className="min-h-screen bg-background pb-56 safe-bottom">
@@ -742,9 +763,17 @@ function ProfileScreen({
 
         <button
           type="button"
-          onClick={() => {
-            setSaveNotice(true);
-            window.setTimeout(() => setSaveNotice(false), 1800);
+          onClick={async () => {
+            const preferences = {
+              mascot: selectedMascot,
+              accessory: selectedAccessory,
+            };
+            const saved = await onSavePreferences(preferences);
+            if (saved) {
+              writeProfilePreferences(preferencesKey, preferences);
+              setSaveNotice(true);
+              window.setTimeout(() => setSaveNotice(false), 1800);
+            }
           }}
           className="h-14 w-full rounded-xl bg-primary text-[20px] font-extrabold text-white shadow-sm transition-transform active:scale-95"
         >

@@ -7,6 +7,8 @@ create table if not exists public.profiles (
   is_pro boolean not null default false,
   subscription_status text not null default 'free',
   pro_expires_at timestamptz,
+  mascot text not null default 'Keçi',
+  accessory text not null default 'Gözlük',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -22,6 +24,12 @@ alter table public.profiles
 
 alter table public.profiles
   add column if not exists pro_expires_at timestamptz;
+
+alter table public.profiles
+  add column if not exists mascot text not null default 'Keçi';
+
+alter table public.profiles
+  add column if not exists accessory text not null default 'Gözlük';
 
 create table if not exists public.user_progress (
   user_id uuid primary key references auth.users(id) on delete cascade,
@@ -104,8 +112,8 @@ create policy "Users can update own profile"
   with check (auth.uid() = id);
 
 revoke insert, update on public.profiles from authenticated;
-grant insert (id, email, display_name, grade_id) on public.profiles to authenticated;
-grant update (email, display_name, grade_id) on public.profiles to authenticated;
+grant insert (id, email, display_name, grade_id, mascot, accessory) on public.profiles to authenticated;
+grant update (email, display_name, grade_id, mascot, accessory) on public.profiles to authenticated;
 grant select on public.profiles to authenticated;
 
 drop policy if exists "Users can read own progress" on public.user_progress;
