@@ -1,26 +1,39 @@
 import { ReactNode, Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Bell,
   BookOpen,
+  Calendar,
   Check,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
   Crown,
+  Download,
   Glasses,
   GraduationCap,
+  HelpCircle,
   Lock,
   LogOut,
+  Mail,
+  Moon,
   Palette,
   Plus,
+  RotateCcw,
   Route,
   Settings,
   Shield,
   Shirt,
+  Smartphone,
   Star,
+  Target,
+  Trash2,
   Trophy,
+  Type,
   User,
+  Volume2,
   X,
+  Zap,
 } from 'lucide-react';
 import { type ProfilePreferences, useAppState } from '@/hooks/useAppState';
 import { useContentLibrary } from '@/hooks/useContentLibrary';
@@ -270,10 +283,23 @@ export default function Index() {
           />
         )}
         {utilityScreen === 'settings' && (
-          <SettingsScreen
+          <EnhancedSettingsScreen
             onSignOut={app.signOut}
             isAdmin={app.isAdmin}
+            isPro={app.isPro}
+            userEmail={app.userEmail}
+            displayName={app.userDisplayName}
+            gradeId={app.gradeId}
+            totalPoints={totalPoints}
+            completedUnits={app.progress.completedUnits.length}
             onAdmin={app.goToAdmin}
+            onChangeGrade={() => {
+              setUtilityScreen(null);
+              app.goToOnboarding();
+            }}
+            onProFeature={setProPrompt}
+            onResetPassword={app.resetPassword}
+            onUpdateDisplayName={app.updateDisplayName}
             onHome={() => {
               setUtilityScreen(null);
               app.goToSubjects();
@@ -1063,6 +1089,282 @@ function SettingsRow({ icon, title, description, action = false }: { icon: React
         <span className="block text-[13px] font-semibold text-[#8b7564]">{description}</span>
       </span>
       {action && <ChevronRight className="h-5 w-5 text-[#8b7564]" />}
+    </div>
+  );
+}
+
+type AppSettings = {
+  theme: 'light' | 'dark' | 'system';
+  fontSize: 'normal' | 'large';
+  dailyGoal: '10' | '20' | '30';
+  questionCount: '5' | '10' | '15';
+  difficulty: 'easy' | 'normal' | 'hard';
+  studyReminder: boolean;
+  examReminder: boolean;
+  achievementReminder: boolean;
+  emailNotifications: boolean;
+  soundEffects: boolean;
+  reducedMotion: boolean;
+};
+
+const SETTINGS_KEY = 'kecci-app-settings';
+
+const defaultAppSettings: AppSettings = {
+  theme: 'light',
+  fontSize: 'normal',
+  dailyGoal: '20',
+  questionCount: '10',
+  difficulty: 'normal',
+  studyReminder: true,
+  examReminder: true,
+  achievementReminder: true,
+  emailNotifications: true,
+  soundEffects: true,
+  reducedMotion: false,
+};
+
+function readAppSettings(): AppSettings {
+  if (typeof window === 'undefined') return defaultAppSettings;
+
+  try {
+    const stored = window.localStorage.getItem(SETTINGS_KEY);
+    return stored ? { ...defaultAppSettings, ...JSON.parse(stored) } : defaultAppSettings;
+  } catch {
+    return defaultAppSettings;
+  }
+}
+
+function writeAppSettings(settings: AppSettings) {
+  window.localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+}
+
+function applyVisualSettings(settings: AppSettings) {
+  const root = document.documentElement;
+  const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+  root.classList.toggle('dark', settings.theme === 'dark' || (settings.theme === 'system' && prefersDark));
+  root.style.fontSize = settings.fontSize === 'large' ? '17px' : '';
+  root.style.scrollBehavior = settings.reducedMotion ? 'auto' : 'smooth';
+}
+
+function EnhancedSettingsScreen({
+  onSignOut,
+  isAdmin,
+  isPro,
+  userEmail,
+  displayName,
+  gradeId,
+  totalPoints,
+  completedUnits,
+  onAdmin,
+  onHome,
+  onChangeGrade,
+  onProFeature,
+  onResetPassword,
+  onUpdateDisplayName,
+}: {
+  onSignOut: () => void;
+  isAdmin: boolean;
+  isPro: boolean;
+  userEmail: string | null;
+  displayName: string | null;
+  gradeId: number | null;
+  totalPoints: number;
+  completedUnits: number;
+  onAdmin: () => void;
+  onHome: () => void;
+  onChangeGrade: () => void;
+  onProFeature: (feature: string) => void;
+  onResetPassword: (email: string) => Promise<void>;
+  onUpdateDisplayName: (displayName: string) => Promise<boolean>;
+}) {
+  const [settings, setSettings] = useState<AppSettings>(() => readAppSettings());
+  const [name, setName] = useState(displayName || userEmail?.split('@')[0] || '');
+  const [notice, setNotice] = useState<string | null>(null);
+  const [savingName, setSavingName] = useState(false);
+
+  useEffect(() => {
+    writeAppSettings(settings);
+    applyVisualSettings(settings);
+  }, [settings]);
+
+  const updateSetting = <Key extends keyof AppSettings>(key: Key, value: AppSettings[Key]) => {
+    setSettings(current => ({ ...current, [key]: value }));
+  };
+
+  const showNotice = (message: string) => {
+    setNotice(message);
+    window.setTimeout(() => setNotice(null), 2200);
+  };
+
+  const exportData = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      account: { displayName: name, email: userEmail, gradeId, isPro },
+      progress: { totalPoints, completedUnits },
+      settings,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'kecci-verilerim.json';
+    link.click();
+    URL.revokeObjectURL(url);
+    showNotice('Verilerin indirildi.');
+  };
+
+  const requestNotificationPermission = async () => {
+    if (!('Notification' in window)) {
+      showNotice('Bu tarayıcı bildirimleri desteklemiyor.');
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    showNotice(permission === 'granted' ? 'Bildirim izni açıldı.' : 'Bildirim izni verilmedi.');
+  };
+
+  return (
+    <div className="min-h-screen bg-background pb-40 safe-bottom">
+      <UtilityHeader title="Ayarlar" subtitle="Hesap ve tercihler" onHome={onHome} />
+      <main className="mx-auto max-w-md space-y-6 px-5 pt-6">
+        {notice && (
+          <div className="rounded-2xl bg-[#ffddb9] px-4 py-3 text-center text-[13px] font-extrabold text-primary">
+            {notice}
+          </div>
+        )}
+
+        <SettingsSection title="Hesap">
+          <div className="rounded-2xl border border-[#e0d7d0] bg-white p-4 shadow-[0_3px_0_0_#e0d7d0]">
+            <label className="text-[12px] font-extrabold uppercase tracking-wider text-[#8b7564]">Ad Soyad</label>
+            <div className="mt-2 flex gap-2">
+              <input
+                value={name}
+                onChange={event => setName(event.target.value)}
+                className="min-w-0 flex-1 rounded-xl border border-[#d9c2b8] bg-[#fdf9f3] px-4 py-3 text-[15px] font-bold text-primary outline-none focus:border-primary"
+                placeholder="Adını yaz"
+              />
+              <button
+                type="button"
+                disabled={savingName || !name.trim()}
+                onClick={async () => {
+                  setSavingName(true);
+                  const saved = await onUpdateDisplayName(name);
+                  setSavingName(false);
+                  showNotice(saved ? 'Profil adın güncellendi.' : 'Ad güncellenemedi.');
+                }}
+                className="rounded-xl bg-primary px-4 text-[13px] font-extrabold text-white disabled:opacity-45"
+              >
+                Kaydet
+              </button>
+            </div>
+            <div className="mt-3 flex items-center gap-2 text-[13px] font-semibold text-[#8b7564]">
+              <Mail className="h-4 w-4" />
+              <span className="truncate">{userEmail || 'E-posta bulunamadı'}</span>
+            </div>
+          </div>
+
+          <ActionRow icon={<RotateCcw className="h-5 w-5" />} title="Şifre Değiştir" description="E-postana güvenli şifre sıfırlama bağlantısı gönder" onClick={async () => {
+            if (!userEmail) return showNotice('Önce e-posta ile giriş yapmalısın.');
+            await onResetPassword(userEmail);
+            showNotice('Şifre sıfırlama e-postası gönderildi.');
+          }} />
+          <ActionRow icon={<Target className="h-5 w-5" />} title="Sınıf Seviyesini Değiştir" description={gradeId ? `Mevcut sınıf: ${gradeId}. sınıf` : 'Sınıf seçimi yapılmadı'} onClick={onChangeGrade} />
+        </SettingsSection>
+
+        <SettingsSection title="Öğrenme Tercihleri">
+          <SegmentedControl label="Günlük hedef" value={settings.dailyGoal} options={[['10', '10 dk'], ['20', '20 dk'], ['30', '30 dk']]} onChange={value => updateSetting('dailyGoal', value as AppSettings['dailyGoal'])} />
+          <SegmentedControl label="Test soru sayısı" value={settings.questionCount} options={[['5', '5'], ['10', '10'], ['15', '15']]} onChange={value => updateSetting('questionCount', value as AppSettings['questionCount'])} />
+          <SegmentedControl label="Zorluk seviyesi" value={settings.difficulty} options={[['easy', 'Kolay'], ['normal', 'Orta'], ['hard', 'Zor']]} onChange={value => updateSetting('difficulty', value as AppSettings['difficulty'])} />
+        </SettingsSection>
+
+        <SettingsSection title="Bildirimler">
+          <ToggleRow icon={<Bell className="h-5 w-5" />} title="Günlük çalışma hatırlatıcısı" checked={settings.studyReminder} onChange={value => updateSetting('studyReminder', value)} />
+          <ToggleRow icon={<Calendar className="h-5 w-5" />} title="Deneme sınavı hatırlatıcısı" checked={settings.examReminder} onChange={value => updateSetting('examReminder', value)} />
+          <ToggleRow icon={<Trophy className="h-5 w-5" />} title="Başarı ve rozet bildirimleri" checked={settings.achievementReminder} onChange={value => updateSetting('achievementReminder', value)} />
+          <ToggleRow icon={<Mail className="h-5 w-5" />} title="E-posta bildirimleri" checked={settings.emailNotifications} onChange={value => updateSetting('emailNotifications', value)} />
+          <ActionRow icon={<Smartphone className="h-5 w-5" />} title="Cihaz Bildirim İzni" description="Tarayıcı bildirim iznini aç" onClick={requestNotificationPermission} />
+        </SettingsSection>
+
+        <SettingsSection title="Görünüm">
+          <SegmentedControl label="Tema" value={settings.theme} options={[['light', 'Açık'], ['dark', 'Koyu'], ['system', 'Sistem']]} onChange={value => updateSetting('theme', value as AppSettings['theme'])} />
+          <SegmentedControl label="Yazı boyutu" value={settings.fontSize} options={[['normal', 'Normal'], ['large', 'Büyük']]} onChange={value => updateSetting('fontSize', value as AppSettings['fontSize'])} />
+          <ToggleRow icon={<Volume2 className="h-5 w-5" />} title="Ses efektleri" checked={settings.soundEffects} onChange={value => updateSetting('soundEffects', value)} />
+          <ToggleRow icon={<Zap className="h-5 w-5" />} title="Animasyonları azalt" checked={settings.reducedMotion} onChange={value => updateSetting('reducedMotion', value)} />
+        </SettingsSection>
+
+        <SettingsSection title="Pro ve Abonelik">
+          <ActionRow icon={<Crown className="h-5 w-5" />} title={isPro ? 'Keççi Pro Aktif' : 'Pro Hesaba Geç'} description={isPro ? 'Denemelerim ve özel maskotlar açık' : 'Denemelerim, özel maskotlar ve gelişmiş raporlar'} onClick={() => !isPro && onProFeature('Keççi Pro aboneliği')} />
+        </SettingsSection>
+
+        <SettingsSection title="Gizlilik ve Güvenlik">
+          <ActionRow icon={<Download className="h-5 w-5" />} title="Verilerimi İndir" description="Hesap, ilerleme ve ayar özetini JSON olarak al" onClick={exportData} />
+          <ActionRow icon={<Trash2 className="h-5 w-5" />} title="Hesabı Silme Talebi" description="Destek ekibine hesap silme talebi oluştur" onClick={() => showNotice('Hesap silme akışı için destek formu hazırlanacak.')} />
+        </SettingsSection>
+
+        <SettingsSection title="Destek">
+          {isAdmin && <ActionRow icon={<Shield className="h-5 w-5" />} title="Admin Paneli" description="İçerikleri ve kullanıcı özelliklerini düzenle" onClick={onAdmin} />}
+          <ActionRow icon={<HelpCircle className="h-5 w-5" />} title="Yardım ve SSS" description="Sık sorulan soruları aç" onClick={() => showNotice('Yardım merkezi yakında ayrı sayfa olarak açılacak.')} />
+          <ActionRow icon={<AlertTriangle className="h-5 w-5" />} title="Hata Bildir" description="Geri bildirim göndermek için hazırla" onClick={() => window.location.href = `mailto:${userEmail || 'destek@kecci.app'}?subject=Keççi hata bildirimi`} />
+          <div className="rounded-2xl border border-[#e0d7d0] bg-[#fdf9f3] p-4 text-[13px] font-bold text-[#8b7564]">Uygulama sürümü: 0.0.0</div>
+        </SettingsSection>
+
+        <button type="button" onClick={onSignOut} className="flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[16px] font-extrabold text-white active:scale-95">
+          <LogOut className="h-5 w-5" />
+          Çıkış Yap
+        </button>
+      </main>
+    </div>
+  );
+}
+
+function SettingsSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="space-y-3">
+      <h2 className="px-1 text-[12px] font-extrabold uppercase tracking-wider text-primary">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
+function ActionRow({ icon, title, description, onClick }: { icon: ReactNode; title: string; description: string; onClick: () => void }) {
+  return (
+    <button type="button" onClick={onClick} className="flex w-full items-center gap-4 rounded-2xl border border-[#e0d7d0] bg-[#fdf9f3] p-4 text-left shadow-[0_3px_0_0_#e0d7d0] active:scale-[0.99]">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ffddb9] text-primary">{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[17px] font-extrabold text-primary">{title}</span>
+        <span className="block text-[13px] font-semibold text-[#8b7564]">{description}</span>
+      </span>
+      <ChevronRight className="h-5 w-5 text-[#8b7564]" />
+    </button>
+  );
+}
+
+function ToggleRow({ icon, title, checked, onChange }: { icon: ReactNode; title: string; checked: boolean; onChange: (checked: boolean) => void }) {
+  return (
+    <div className="flex items-center gap-4 rounded-2xl border border-[#e0d7d0] bg-[#fdf9f3] p-4 shadow-[0_3px_0_0_#e0d7d0]">
+      <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-[#ffddb9] text-primary">{icon}</span>
+      <span className="flex-1 text-[16px] font-extrabold text-primary">{title}</span>
+      <button type="button" role="switch" aria-checked={checked} onClick={() => onChange(!checked)} className={`flex h-8 w-14 items-center rounded-full p-1 transition-colors ${checked ? 'bg-primary' : 'bg-[#d9c2b8]'}`}>
+        <span className={`h-6 w-6 rounded-full bg-white transition-transform ${checked ? 'translate-x-6' : 'translate-x-0'}`} />
+      </button>
+    </div>
+  );
+}
+
+function SegmentedControl({ label, value, options, onChange }: { label: string; value: string; options: Array<[string, string]>; onChange: (value: string) => void }) {
+  return (
+    <div className="rounded-2xl border border-[#e0d7d0] bg-[#fdf9f3] p-4 shadow-[0_3px_0_0_#e0d7d0]">
+      <div className="mb-3 flex items-center gap-2 text-[14px] font-extrabold text-primary">
+        <Type className="h-4 w-4" />
+        {label}
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        {options.map(([optionValue, optionLabel]) => (
+          <button key={optionValue} type="button" onClick={() => onChange(optionValue)} className={`h-10 rounded-xl text-[13px] font-extrabold transition-all active:scale-95 ${value === optionValue ? 'bg-primary text-white' : 'bg-white text-[#8b7564] ring-1 ring-[#d9c2b8]'}`}>
+            {optionLabel}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

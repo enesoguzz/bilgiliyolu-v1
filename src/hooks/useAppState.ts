@@ -794,6 +794,37 @@ export function useAppState() {
     return true;
   }, [currentUserId]);
 
+  const updateDisplayName = useCallback(async (displayName: string): Promise<boolean> => {
+    const cleanedName = displayName.trim();
+    if (!supabase || !currentUserId || !cleanedName) return false;
+
+    setAuthError(null);
+
+    const { data, error } = await supabase.auth.updateUser({
+      data: {
+        display_name: cleanedName,
+        full_name: cleanedName,
+        name: cleanedName,
+      },
+    });
+
+    if (error) {
+      setAuthError(translateAuthError(error.message));
+      return false;
+    }
+
+    if (data.user) {
+      setSession(current => current ? { ...current, user: data.user } : current);
+    }
+
+    await supabase
+      .from('profiles')
+      .update({ display_name: cleanedName })
+      .eq('id', currentUserId);
+
+    return true;
+  }, [currentUserId]);
+
   const clearPendingVerification = useCallback(() => {
     setPendingVerification(null);
     setAuthGateActive(false);
@@ -918,6 +949,7 @@ export function useAppState() {
     signInWithOAuth,
     signOut,
     saveProfilePreferences,
+    updateDisplayName,
     selectLevel,
     selectGrade,
     selectSubject,
