@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, CheckCircle2, Timer, X } from 'lucide-react';
 import { getQuestionsForUnit } from '@/data/curriculum';
 import { Question } from '@/types/curriculum';
@@ -16,15 +16,52 @@ function shuffleAndPick(questions: Question[], count: number): Question[] {
   return shuffled.slice(0, count);
 }
 
+const QUIZ_TIME_SECONDS = 15 * 60;
+
+function formatTime(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function buildFeedback(question: Question, isCorrect: boolean): string {
+  const correctOption = question.options[question.correctIndex];
+  const base = question.explanation || `Doğru cevap: ${correctOption}`;
+  const guidance = isCorrect
+    ? 'Sorunun kökündeki ipucunu doğru seçeneğe bağladın; aynı yöntemi benzer sorularda da kullanabilirsin.'
+    : `Doğru seçenek "${correctOption}". Önce sorunun senden ne istediğini belirle, sonra seçenekleri tek tek eleyerek ilerle.`;
+
+  return `${base} ${guidance}`;
+}
+
 export default function QuizScreen({ unitId, questions: sourceQuestions, onComplete, onExit, onHome }: QuizScreenProps) {
   const questions = useMemo(() => shuffleAndPick(getQuestionsForUnit(unitId, sourceQuestions), 7), [sourceQuestions, unitId]);
   const [current, setCurrent] = useState(0);
   const [selected, setSelected] = useState<number | null>(null);
   const [correct, setCorrect] = useState(0);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(QUIZ_TIME_SECONDS);
 
   const q = questions[current];
   const progress = questions.length ? ((current + 1) / questions.length) * 100 : 0;
+
+  useEffect(() => {
+    if (!q) return undefined;
+
+    const interval = window.setInterval(() => {
+      setTimeLeft(value => {
+        if (value <= 1) {
+          window.clearInterval(interval);
+          onHome();
+          return 0;
+        }
+
+        return value - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [onHome, q]);
 
   if (!q) {
     return (
@@ -75,7 +112,7 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
         </div>
         <div className="flex items-center gap-1.5 rounded-full bg-[#e6e2dc] px-3 py-1 text-[#5a4538]">
           <Timer className="h-4 w-4" />
-          <span className="text-xs font-extrabold">12:45</span>
+          <span className="text-xs font-extrabold">{formatTime(timeLeft)}</span>
         </div>
       </header>
 
@@ -102,7 +139,7 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
             const isAnswer = index === q.correctIndex;
             const stateClass = showFeedback
               ? isAnswer
-                ? 'border-primary bg-primary/10'
+                ? 'border-green-500 bg-green-50 text-green-800 shadow-[inset_4px_0_0_#22c55e]'
                 : isSelected
                   ? 'border-destructive bg-destructive/10'
                   : 'border-[#ead9cf] bg-white'
@@ -119,7 +156,7 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
               >
                 <span
                   className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-extrabold ${
-                    isSelected || (showFeedback && isAnswer) ? 'bg-primary text-white' : 'bg-[#e6e2dc] text-primary'
+                    showFeedback && isAnswer ? 'bg-green-600 text-white' : isSelected ? 'bg-primary text-white' : 'bg-[#e6e2dc] text-primary'
                   }`}
                 >
                   {letter}
@@ -127,16 +164,16 @@ export default function QuizScreen({ unitId, questions: sourceQuestions, onCompl
                 <span className={`flex-1 text-[15px] leading-6 ${isSelected ? 'font-extrabold text-primary' : 'font-semibold text-[#5a4538]'}`}>
                   {option}
                 </span>
-                {showFeedback && isAnswer && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                {showFeedback && isAnswer && <CheckCircle2 className="h-5 w-5 text-green-600" />}
               </button>
             );
           })}
         </section>
 
         {showFeedback && (
-          <section className={`rounded-2xl p-4 ${isCorrect ? 'bg-primary/10 text-primary' : 'bg-destructive/10 text-destructive'}`}>
+          <section className={`rounded-2xl p-4 ${isCorrect ? 'bg-green-50 text-green-800 ring-1 ring-green-200' : 'bg-destructive/10 text-destructive'}`}>
             <p className="text-sm font-extrabold">{isCorrect ? 'Doğru!' : 'Yanlış'}</p>
-            <p className="mt-1 text-xs leading-5 text-[#5a4538]">{q.explanation}</p>
+            <p className="mt-1 text-xs leading-5 text-[#5a4538]">{buildFeedback(q, isCorrect)}</p>
           </section>
         )}
       </main>

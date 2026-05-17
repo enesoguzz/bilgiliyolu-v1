@@ -8,6 +8,7 @@ interface PathScreenProps {
   completedUnits: string[];
   unitScores: Record<string, number>;
   units?: Unit[];
+  mascotSrc?: string;
   onSelectUnit: (unitId: string) => void;
   onBack: () => void;
   onHome?: () => void;
@@ -28,6 +29,7 @@ export default function PathScreen({
   completedUnits,
   unitScores,
   units: sourceUnits,
+  mascotSrc = '/mascots/thumbs/ankara-kecisi.png',
   onSelectUnit,
   onBack,
   onHome,
@@ -44,6 +46,7 @@ export default function PathScreen({
   };
 
   const activeUnit = units.find((unit, index) => getUnitStatus(unit, index) === 'active') ?? units[0];
+  const activeUnitIndex = Math.max(0, units.findIndex(unit => unit.id === activeUnit?.id));
 
   return (
     <div className="min-h-screen bg-[#f9f9f9] pb-40 safe-bottom">
@@ -145,9 +148,9 @@ export default function PathScreen({
                       {isActive && <Edit3 className="h-7 w-7" />}
                       {isLocked && <Lock className="h-6 w-6" />}
 
-                      {index === 0 && (
-                        <span className="absolute -right-12 -top-4 flex h-16 w-16 items-center justify-center rounded-full border-2 border-[#d9c2b8] bg-white p-1 shadow-md">
-                          <img src="/mascots/thumbs/ankara-kecisi.png" alt="Keççi maskotu" className="h-full w-full object-contain" loading="lazy" decoding="async" />
+                      {index === activeUnitIndex && (
+                        <span className="absolute -right-16 -top-9 flex h-24 w-24 animate-[bounce_1.8s_infinite] items-center justify-center rounded-full border-[3px] border-[#ffb694] bg-white p-2 shadow-xl shadow-primary/15">
+                          <img src={mascotSrc} alt="Keççi maskotu" className="h-full w-full object-contain" loading="lazy" decoding="async" />
                         </span>
                       )}
                     </span>

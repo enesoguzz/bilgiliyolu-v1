@@ -1,4 +1,5 @@
 import { Grade, Question, Subject, TopicSlide, Unit } from '@/types/curriculum';
+import { getPdfQuestionsForUnit, getPdfSlidesForUnit, getPdfUnitsForSubjectAndGrade } from './pdfCurriculum';
 
 type SubjectSeed = {
   id: string;
@@ -49,7 +50,7 @@ const subjectSeeds: SubjectSeed[] = [
     name: 'Fen Bilimleri',
     icon: '🔬',
     color: 'success',
-    grades: [4, 5, 6, 7, 8],
+    grades: [3, 4, 5, 6, 7, 8],
     themes: ['Canlılar ve Yaşam', 'Madde ve Özellikleri', 'Kuvvet ve Hareket', 'Dünya ve Evren', 'Elektrik ve Enerji'],
     skill: 'bilimsel gözlem yapma ve neden-sonuç kurma',
   },
@@ -67,7 +68,7 @@ const subjectSeeds: SubjectSeed[] = [
     name: 'İngilizce',
     icon: '🇬🇧',
     color: 'destructive',
-    grades: [5, 6, 7, 8],
+    grades: [4, 5, 6, 7, 8],
     themes: ['Everyday English', 'Vocabulary Builder', 'Grammar in Use', 'Reading Skills', 'Speaking Practice'],
     skill: 'temel İngilizce iletişim kurma',
   },
@@ -97,22 +98,32 @@ function unitId(subjectId: string, gradeId: number, order: number): string {
 
 function makeUnits(): Unit[] {
   return subjectSeeds.flatMap(subject =>
-    subject.grades.flatMap(gradeId =>
-      subject.themes.map((theme, index) => ({
+    subject.grades.flatMap(gradeId => {
+      if (gradeId >= 2 && gradeId <= 4) {
+        const pdfSubjectUnits = getPdfUnitsForSubjectAndGrade(subject.id, gradeId);
+        if (pdfSubjectUnits.length > 0) return pdfSubjectUnits;
+      }
+
+      return subject.themes.map((theme, index) => ({
         id: unitId(subject.id, gradeId, index + 1),
         subjectId: subject.id,
         gradeId,
         order: index + 1,
         title: theme,
         description: `${gradeId}. sınıf düzeyinde ${subject.skill} için ${levelPhrase(gradeId)} çalışma.`,
-      })),
-    ),
+      }));
+    }),
   );
 }
 
 export const units: Unit[] = makeUnits();
 
 function makeSlidesForUnit(unit: Unit): TopicSlide[] {
+  if (unit.gradeId >= 2 && unit.gradeId <= 4) {
+    const pdfSlides = getPdfSlidesForUnit(unit.id);
+    if (pdfSlides.length > 0) return pdfSlides;
+  }
+
   const subject = getSeed(unit.subjectId);
   const subjectName = subject?.name ?? 'Ders';
   const skill = subject?.skill ?? 'konuyu öğrenme';
@@ -161,6 +172,11 @@ function getDefaultSlides(): TopicSlide[] {
 }
 
 function makeQuestionsForUnit(unit: Unit): Question[] {
+  if (unit.gradeId >= 2 && unit.gradeId <= 4) {
+    const pdfQuestions = getPdfQuestionsForUnit(unit.id);
+    if (pdfQuestions.length > 0) return pdfQuestions;
+  }
+
   const subject = getSeed(unit.subjectId);
   const subjectName = subject?.name ?? 'Ders';
   const skill = subject?.skill ?? 'konuyu öğrenme';

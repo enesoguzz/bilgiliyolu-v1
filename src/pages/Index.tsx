@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { type ProfilePreferences, useAppState } from '@/hooks/useAppState';
 import { useContentLibrary } from '@/hooks/useContentLibrary';
+import { Unit } from '@/types/curriculum';
+import { getPracticeExamsForGrade, PracticeExam } from '@/data/pdfCurriculum';
 
 const AdminPanel = lazy(() => import('@/components/AdminPanel'));
 const AuthScreen = lazy(() => import('@/components/AuthScreen'));
@@ -36,8 +38,81 @@ const ResultsScreen = lazy(() => import('@/components/ResultsScreen'));
 
 type UtilityScreen = 'profile' | 'settings' | 'tests' | null;
 
+type RankInfo = {
+  title: string;
+  level: number;
+  progress: number;
+  nextTitle: string | null;
+  pointsToNext: number;
+  currentThreshold: number;
+  nextThreshold: number;
+  isGraduated: boolean;
+};
+
+const rankSteps = [
+  { title: 'Yeni Başlayan', threshold: 0 },
+  { title: 'Meraklı Öğrenci', threshold: 500 },
+  { title: 'Çalışkan Keçi', threshold: 1500 },
+  { title: 'Bilge Keçi', threshold: 3000 },
+  { title: 'Uzman Keçi', threshold: 5000 },
+  { title: 'Deneyimli Keçi', threshold: 8000 },
+];
+
+const mascotImageByName: Record<string, string> = {
+  Keçi: '/mascots/thumbs/ankara-kecisi.png',
+  Aslan: '/mascots/thumbs/aslan.png',
+  Kartal: '/mascots/thumbs/kartal.png',
+  Kanarya: '/mascots/thumbs/kanarya.png',
+  Hamsi: '/mascots/thumbs/hamsi.png',
+  Alageyik: '/mascots/thumbs/alageyik.png',
+  'Telli Turna': '/mascots/thumbs/telli-turna.png',
+  'Yaban Kazı': '/mascots/thumbs/yaban-kazi.png',
+  'İnci Kefali': '/mascots/thumbs/inci-kefali.png',
+};
+
 function calculateTotalPoints(unitScores: Record<string, number>): number {
   return Object.values(unitScores).reduce((sum, score) => sum + Math.max(50, score * 5), 0);
+}
+
+function getGradeUnits(units: Unit[], gradeId: number | null): Unit[] {
+  if (!gradeId) return [];
+  return units.filter(unit => unit.gradeId === gradeId);
+}
+
+function calculateRank(totalPoints: number, completedUnits: string[], gradeUnits: Unit[]): RankInfo {
+  const hasGraduated = gradeUnits.length > 0 && gradeUnits.every(unit => completedUnits.includes(unit.id));
+  if (hasGraduated) {
+    return {
+      title: 'Mezun Deneyimli',
+      level: rankSteps.length + 1,
+      progress: 100,
+      nextTitle: null,
+      pointsToNext: 0,
+      currentThreshold: totalPoints,
+      nextThreshold: totalPoints,
+      isGraduated: true,
+    };
+  }
+
+  const currentIndex = rankSteps.reduce((bestIndex, step, index) => (
+    totalPoints >= step.threshold ? index : bestIndex
+  ), 0);
+  const current = rankSteps[currentIndex];
+  const next = rankSteps[currentIndex + 1] ?? null;
+  const progress = next
+    ? Math.min(100, Math.round(((totalPoints - current.threshold) / (next.threshold - current.threshold)) * 100))
+    : 100;
+
+  return {
+    title: current.title,
+    level: currentIndex + 1,
+    progress,
+    nextTitle: next?.title ?? null,
+    pointsToNext: next ? Math.max(0, next.threshold - totalPoints) : 0,
+    currentThreshold: current.threshold,
+    nextThreshold: next?.threshold ?? current.threshold,
+    isGraduated: false,
+  };
 }
 
 function getProfilePreferencesKey(userEmail: string | null): string {
@@ -47,6 +122,24 @@ function getProfilePreferencesKey(userEmail: string | null): string {
 function writeProfilePreferences(key: string, preferences: ProfilePreferences) {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(key, JSON.stringify(preferences));
+}
+
+const PRACTICE_TEST_TIME_SECONDS = 30 * 60;
+
+function formatDuration(totalSeconds: number): string {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${String(seconds).padStart(2, '0')}`;
+}
+
+function getQuestionFeedback(question: PracticeExam['questions'][number], isCorrect: boolean): string {
+  const correctOption = question.options[question.correctIndex];
+  const base = question.explanation || `Doğru cevap: ${correctOption}`;
+  const guidance = isCorrect
+    ? 'Sorudaki ana ipucunu doğru yakaladın; aynı mantıkla diğer seçenekleri de hızlıca eleyebilirsin.'
+    : `Doğru seçenek "${correctOption}". Sorunun istediği bilgiyi bulup seçenekleri onunla karşılaştırmak bu tip sorularda en güvenli yoldur.`;
+
+  return `${base} ${guidance}`;
 }
 
 function ScreenFallback() {
@@ -63,6 +156,12 @@ export default function Index() {
   const [utilityScreen, setUtilityScreen] = useState<UtilityScreen>(null);
   const [proPrompt, setProPrompt] = useState<string | null>(null);
   const totalPoints = calculateTotalPoints(app.progress.unitScores);
+  const gradeUnits = useMemo(() => getGradeUnits(content.units, app.gradeId), [app.gradeId, content.units]);
+  const rankInfo = useMemo(
+    () => calculateRank(totalPoints, app.progress.completedUnits, gradeUnits),
+    [app.progress.completedUnits, gradeUnits, totalPoints],
+  );
+  const activeMascotSrc = mascotImageByName[app.profilePreferences.mascot] ?? mascotImageByName.Keçi;
   const isAdminScreen = !utilityScreen && app.screen === 'admin' && app.isAdmin;
   const showBottomNav = app.isAuthenticated && !['admin', 'level', 'tutorial', 'onboarding', 'slides', 'quiz', 'results'].includes(app.screen);
   const unitSlides = useMemo(
@@ -147,12 +246,13 @@ export default function Index() {
             gradeId={app.gradeId}
             userEmail={app.userEmail}
             displayName={app.userDisplayName}
-          totalPoints={totalPoints}
-          isPro={app.isPro}
-          savedPreferences={app.profilePreferences}
-          onSavePreferences={app.saveProfilePreferences}
-          onProFeature={setProPrompt}
-          onHome={() => {
+            totalPoints={totalPoints}
+            rankInfo={rankInfo}
+            isPro={app.isPro}
+            savedPreferences={app.profilePreferences}
+            onSavePreferences={app.saveProfilePreferences}
+            onProFeature={setProPrompt}
+            onHome={() => {
               setUtilityScreen(null);
               app.goToSubjects();
             }}
@@ -160,6 +260,7 @@ export default function Index() {
         )}
         {utilityScreen === 'tests' && (
           <TestsScreen
+            gradeId={app.gradeId ?? 1}
             isPro={app.isPro}
             onProFeature={setProPrompt}
             onHome={() => {
@@ -217,6 +318,7 @@ export default function Index() {
             completedUnits={app.progress.completedUnits}
             unitScores={app.progress.unitScores}
             units={content.units}
+            mascotSrc={activeMascotSrc}
             onSelectUnit={app.selectUnit}
             onBack={app.goToSubjects}
             onHome={app.goToSubjects}
@@ -374,48 +476,31 @@ function UtilityHeader({ title, subtitle, onHome }: { title: string; subtitle: s
 }
 
 function TestsScreen({
+  gradeId,
   isPro,
   onProFeature,
   onHome,
 }: {
+  gradeId: number;
   isPro: boolean;
   onProFeature: (feature: string) => void;
   onHome: () => void;
 }) {
-  const tests = [
-    { title: '1. Sınıf Genel Deneme', questions: 20, duration: '30 dk', score: null },
-    { title: 'Türkçe Kazanım Denemesi', questions: 12, duration: '18 dk', score: 86 },
-    { title: 'Matematik Hızlı Tarama', questions: 15, duration: '20 dk', score: null },
-  ];
-  const sampleQuestions = [
-    {
-      text: 'Aşağıdaki cümlelerin hangisinde yazım yanlışı vardır?',
-      options: ['Her şey yolunda.', 'Bugün okula gittim.', 'Yanlız kalmak istiyorum.', 'Kitabımı bitirdim.'],
-      correctIndex: 2,
-    },
-    {
-      text: '8 + 7 işleminin sonucu kaçtır?',
-      options: ['13', '14', '15', '16'],
-      correctIndex: 2,
-    },
-    {
-      text: 'Bitkilerin büyümek için en çok ihtiyaç duyduğu şeylerden biri hangisidir?',
-      options: ['Güneş ışığı', 'Kum', 'Plastik', 'Taş'],
-      correctIndex: 0,
-    },
-  ];
-  const [activeTest, setActiveTest] = useState<string | null>(null);
+  const tests = getPracticeExamsForGrade(gradeId);
+  const [activeTest, setActiveTest] = useState<PracticeExam | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [correctCount, setCorrectCount] = useState(0);
   const [finishedScore, setFinishedScore] = useState<number | null>(null);
+  const [timeLeft, setTimeLeft] = useState(PRACTICE_TEST_TIME_SECONDS);
 
-  const startTest = (title: string) => {
-    setActiveTest(title);
+  const startTest = (exam: PracticeExam) => {
+    setActiveTest(exam);
     setCurrentQuestion(0);
     setSelectedOption(null);
     setCorrectCount(0);
     setFinishedScore(null);
+    setTimeLeft(PRACTICE_TEST_TIME_SECONDS);
   };
 
   const answerQuestion = (index: number) => {
@@ -424,10 +509,12 @@ function TestsScreen({
   };
 
   const nextQuestion = () => {
-    const question = sampleQuestions[currentQuestion];
+    if (!activeTest) return;
+
+    const question = activeTest.questions[currentQuestion];
     const nextCorrectCount = correctCount + (selectedOption === question.correctIndex ? 1 : 0);
 
-    if (currentQuestion < sampleQuestions.length - 1) {
+    if (currentQuestion < activeTest.questions.length - 1) {
       setCorrectCount(nextCorrectCount);
       setCurrentQuestion(value => value + 1);
       setSelectedOption(null);
@@ -435,13 +522,36 @@ function TestsScreen({
     }
 
     setCorrectCount(nextCorrectCount);
-    setFinishedScore(Math.round((nextCorrectCount / sampleQuestions.length) * 100));
+    setFinishedScore(Math.round((nextCorrectCount / activeTest.questions.length) * 100));
   };
 
+  useEffect(() => {
+    if (!activeTest || finishedScore !== null) return undefined;
+
+    const interval = window.setInterval(() => {
+      setTimeLeft(value => {
+        if (value <= 1) {
+          window.clearInterval(interval);
+          setActiveTest(null);
+          setCurrentQuestion(0);
+          setSelectedOption(null);
+          setCorrectCount(0);
+          setFinishedScore(null);
+          onHome();
+          return 0;
+        }
+
+        return value - 1;
+      });
+    }, 1000);
+
+    return () => window.clearInterval(interval);
+  }, [activeTest, finishedScore, onHome]);
+
   return (
-    <div className="min-h-screen bg-background pb-40 safe-bottom">
+    <div className="min-h-screen overflow-y-auto bg-background pb-56 safe-bottom">
       <UtilityHeader title="Denemelerim" subtitle={isPro ? 'Pro deneme merkezi' : 'Pro özellik'} onHome={onHome} />
-      <main className="mx-auto max-w-md px-5 pt-6">
+      <main className="mx-auto max-w-md px-5 pb-44 pt-6">
         {!isPro && (
           <section className="rounded-3xl border border-[#d9c2b8] bg-[#fdf9f3] p-6 shadow-[0_3px_0_0_#e0d7d0]">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-[#ffddb9] text-primary">
@@ -475,7 +585,7 @@ function TestsScreen({
                 <button
                   key={test.title}
                   type="button"
-                  onClick={() => startTest(test.title)}
+                  onClick={() => startTest(test)}
                   className="w-full rounded-2xl border border-[#e0d7d0] bg-[#fdf9f3] p-4 text-left shadow-[0_4px_0_0_#e0d7d0] active:translate-y-1 active:shadow-none"
                 >
                   <div className="flex items-center justify-between gap-4">
@@ -485,11 +595,11 @@ function TestsScreen({
                     <span className="min-w-0 flex-1">
                       <span className="block text-[18px] font-extrabold text-primary">{test.title}</span>
                       <span className="block text-[12px] font-bold uppercase tracking-wider text-[#8b7564]">
-                        {test.questions} soru - {test.duration}
+                        {test.questions.length} soru - 30 dk
                       </span>
                     </span>
                     <span className="rounded-full bg-white px-3 py-1 text-xs font-extrabold text-primary">
-                      {test.score ? `%${test.score}` : 'Başla'}
+                      Başla
                     </span>
                   </div>
                 </button>
@@ -499,14 +609,21 @@ function TestsScreen({
         )}
 
         {isPro && activeTest && finishedScore === null && (
-          <section className="rounded-3xl border border-[#e0d7d0] bg-white p-5 shadow-[0_4px_0_0_#e0d7d0]">
-            <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#8b7564]">{activeTest}</p>
-            <h1 className="mt-1 text-[24px] font-extrabold text-primary">Soru {currentQuestion + 1} / {sampleQuestions.length}</h1>
-            <p className="mt-4 text-[17px] font-semibold leading-7 text-[#2f1d14]">{sampleQuestions[currentQuestion].text}</p>
+          <section className="mb-32 rounded-3xl border border-[#e0d7d0] bg-white p-5 shadow-[0_4px_0_0_#e0d7d0]">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#8b7564]">{activeTest.title}</p>
+                <h1 className="mt-1 text-[24px] font-extrabold text-primary">Soru {currentQuestion + 1} / {activeTest.questions.length}</h1>
+              </div>
+              <span className="rounded-full bg-[#e6e2dc] px-3 py-1 text-xs font-extrabold text-[#5a4538]">
+                {formatDuration(timeLeft)}
+              </span>
+            </div>
+            <p className="mt-4 text-[17px] font-semibold leading-7 text-[#2f1d14]">{activeTest.questions[currentQuestion].text}</p>
             <div className="mt-5 space-y-3">
-              {sampleQuestions[currentQuestion].options.map((option, index) => {
+              {activeTest.questions[currentQuestion].options.map((option, index) => {
                 const isSelected = selectedOption === index;
-                const isCorrect = index === sampleQuestions[currentQuestion].correctIndex;
+                const isCorrect = index === activeTest.questions[currentQuestion].correctIndex;
                 const revealed = selectedOption !== null;
 
                 return (
@@ -516,18 +633,39 @@ function TestsScreen({
                     onClick={() => answerQuestion(index)}
                     className={`flex w-full items-center gap-3 rounded-2xl border p-4 text-left text-[15px] font-bold active:scale-[0.99] ${
                       revealed && isCorrect
-                        ? 'border-primary bg-primary/10 text-primary'
+                        ? 'border-green-500 bg-green-50 text-green-800 shadow-[inset_4px_0_0_#22c55e]'
                         : revealed && isSelected
                           ? 'border-red-200 bg-red-50 text-red-700'
                           : 'border-[#ead9cf] bg-[#fdf9f3] text-[#5a4538]'
                     }`}
                   >
-                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white text-primary">{String.fromCharCode(65 + index)}</span>
+                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
+                      revealed && isCorrect ? 'bg-green-600 text-white' : 'bg-white text-primary'
+                    }`}>
+                      {String.fromCharCode(65 + index)}
+                    </span>
                     {option}
                   </button>
                 );
               })}
             </div>
+            {selectedOption !== null && (
+              <div className={`mt-5 rounded-2xl p-4 ${
+                selectedOption === activeTest.questions[currentQuestion].correctIndex
+                  ? 'bg-green-50 text-green-800 ring-1 ring-green-200'
+                  : 'bg-red-50 text-red-700 ring-1 ring-red-100'
+              }`}>
+                <p className="text-sm font-extrabold">
+                  {selectedOption === activeTest.questions[currentQuestion].correctIndex ? 'Doğru!' : 'Yanlış'}
+                </p>
+                <p className="mt-1 text-xs font-semibold leading-5 text-[#5a4538]">
+                  {getQuestionFeedback(
+                    activeTest.questions[currentQuestion],
+                    selectedOption === activeTest.questions[currentQuestion].correctIndex,
+                  )}
+                </p>
+              </div>
+            )}
             <div className="mt-5 flex gap-3">
               <button
                 type="button"
@@ -542,7 +680,7 @@ function TestsScreen({
                 onClick={nextQuestion}
                 className="h-12 flex-[2] rounded-2xl bg-primary text-[14px] font-extrabold text-white active:scale-95 disabled:opacity-50"
               >
-                {currentQuestion < sampleQuestions.length - 1 ? 'Sonraki Soru' : 'Sonucu Gör'}
+                {currentQuestion < activeTest.questions.length - 1 ? 'Sonraki Soru' : 'Sonucu Gör'}
               </button>
             </div>
           </section>
@@ -550,10 +688,10 @@ function TestsScreen({
 
         {isPro && activeTest && finishedScore !== null && (
           <section className="rounded-3xl border border-[#e0d7d0] bg-[#fdf9f3] p-6 text-center shadow-[0_4px_0_0_#e0d7d0]">
-            <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#8b7564]">{activeTest}</p>
+            <p className="text-[11px] font-extrabold uppercase tracking-wider text-[#8b7564]">{activeTest.title}</p>
             <h1 className="mt-2 text-[48px] font-extrabold leading-none text-primary">%{finishedScore}</h1>
             <p className="mt-3 text-[15px] font-semibold leading-6 text-[#5a4538]">
-              {correctCount} doğru, {sampleQuestions.length - correctCount} yanlış. Deneme sonucunu burada takip edebilirsin.
+              {correctCount} doğru, {activeTest.questions.length - correctCount} yanlış. Deneme sonucunu burada takip edebilirsin.
             </p>
             <div className="mt-5 grid gap-3">
               <button
@@ -583,6 +721,7 @@ function ProfileScreen({
   userEmail,
   displayName,
   totalPoints,
+  rankInfo,
   isPro,
   savedPreferences,
   onSavePreferences,
@@ -593,6 +732,7 @@ function ProfileScreen({
   userEmail: string | null;
   displayName: string | null;
   totalPoints: number;
+  rankInfo: RankInfo;
   isPro: boolean;
   savedPreferences: ProfilePreferences;
   onSavePreferences: (preferences: ProfilePreferences) => Promise<boolean>;
@@ -622,8 +762,6 @@ function ProfileScreen({
     });
   };
   const profileName = displayName || userEmail?.split('@')[0] || 'Keççi Öğrencisi';
-  const nextRankPoints = 1500;
-  const rankProgress = Math.min(100, Math.round((totalPoints / nextRankPoints) * 100));
   const selectedMascotData = mascots.find(mascot => mascot.name === selectedMascot) ?? mascots[0];
 
   useEffect(() => {
@@ -646,20 +784,61 @@ function ProfileScreen({
           </div>
 
           <h1 className="mt-4 text-[32px] font-extrabold leading-10 text-primary">{profileName}</h1>
-          <p className="text-[20px] font-bold text-[#54433c]">Bilge Keçi - Seviye 5</p>
+          <p className="text-[20px] font-bold text-[#54433c]">{rankInfo.title} - Seviye {rankInfo.level}</p>
           {userEmail && <p className="mt-1 text-xs font-semibold text-[#86736b]">{userEmail}</p>}
 
           <div className="mt-5 w-full rounded-xl border border-[#d9c2b8] bg-[#f3f3f3] p-4 text-left">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <span className="text-[12px] font-extrabold uppercase tracking-wider text-primary">Sonraki Rütbe: Üstad Keçi</span>
-              <span className="shrink-0 text-[12px] font-bold text-[#54433c]">{totalPoints} / {nextRankPoints} Puan</span>
+              <span className="text-[12px] font-extrabold uppercase tracking-wider text-primary">
+                {rankInfo.nextTitle ? `Sonraki Rütbe: ${rankInfo.nextTitle}` : 'Tebrikler: Tüm üniteler tamamlandı'}
+              </span>
+              <span className="shrink-0 text-[12px] font-bold text-[#54433c]">
+                {rankInfo.nextTitle ? `${totalPoints} / ${rankInfo.nextThreshold} Puan` : `${totalPoints} Puan`}
+              </span>
             </div>
             <div className="h-3 w-full overflow-hidden rounded-full bg-[#e6e2dc]">
-              <div className="h-full rounded-full bg-[#f8bb73]" style={{ width: `${rankProgress}%` }} />
+              <div className="h-full rounded-full bg-[#f8bb73]" style={{ width: `${rankInfo.progress}%` }} />
             </div>
             <p className="mt-2 text-[11px] font-semibold italic text-[#54433c]">
-              Üstad rütbesine ulaşmak için {Math.max(0, nextRankPoints - totalPoints)} puan daha gerekli.
+              {rankInfo.nextTitle
+                ? `${rankInfo.nextTitle} rütbesine ulaşmak için ${rankInfo.pointsToNext} puan daha gerekli.`
+                : 'Mezun Deneyimli rütbesi aktif. Harika iş çıkardın.'}
             </p>
+          </div>
+        </section>
+
+        <section className="rounded-3xl border border-[#d9c2b8] bg-white p-5">
+          <h2 className="text-[12px] font-extrabold uppercase tracking-wider text-primary">Rütbe Adımları</h2>
+          <div className="mt-4 space-y-3">
+            {rankSteps.map((step, index) => {
+              const reached = totalPoints >= step.threshold || rankInfo.isGraduated;
+              return (
+                <div key={step.title} className="flex items-center gap-3">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-extrabold ${
+                    reached ? 'bg-primary text-white' : 'bg-[#e6e2dc] text-[#86736b]'
+                  }`}>
+                    {index + 1}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-sm font-extrabold ${reached ? 'text-primary' : 'text-[#86736b]'}`}>{step.title}</p>
+                    <p className="text-[11px] font-semibold text-[#8b7564]">{step.threshold} puan</p>
+                  </div>
+                  {reached && <Check className="h-4 w-4 text-primary" />}
+                </div>
+              );
+            })}
+            <div className="flex items-center gap-3">
+              <span className={`flex h-8 w-8 items-center justify-center rounded-full text-xs font-extrabold ${
+                rankInfo.isGraduated ? 'bg-primary text-white' : 'bg-[#e6e2dc] text-[#86736b]'
+              }`}>
+                {rankSteps.length + 1}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className={`text-sm font-extrabold ${rankInfo.isGraduated ? 'text-primary' : 'text-[#86736b]'}`}>Mezun Deneyimli</p>
+                <p className="text-[11px] font-semibold text-[#8b7564]">Tüm dersler ve üniteler tamamlanınca açılır</p>
+              </div>
+              {rankInfo.isGraduated && <GraduationCap className="h-4 w-4 text-primary" />}
+            </div>
           </div>
         </section>
 

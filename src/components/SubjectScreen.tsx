@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { getSubjectsForGrade, getUnitsForSubjectAndGrade } from '@/data/curriculum';
 import { Unit } from '@/types/curriculum';
 import {
@@ -69,6 +70,7 @@ export default function SubjectScreen({
   units,
   totalPoints,
 }: SubjectScreenProps) {
+  const [rewardNotice, setRewardNotice] = useState(false);
   const subjects = getSubjectsForGrade(gradeId);
   const subjectSummaries = subjects.map(subject => {
     const subjectUnits = getUnitsForSubjectAndGrade(subject.id, gradeId, units);
@@ -243,12 +245,25 @@ export default function SubjectScreen({
             </p>
             <button
               type="button"
-              onClick={() => onProFeature?.('Haftalık ödüller')}
+              onClick={() => {
+                if (!isPro) {
+                  onProFeature?.('Haftalık ödüller');
+                  return;
+                }
+
+                setRewardNotice(true);
+                window.setTimeout(() => setRewardNotice(false), 2200);
+              }}
               className="mt-4 inline-flex items-center gap-2 rounded-full bg-[#ffddb9] px-4 py-2 text-xs font-extrabold text-primary active:scale-95"
             >
               <Medal className="h-4 w-4" />
               Ödülü Gör
             </button>
+            {rewardNotice && (
+              <p className="mt-3 rounded-2xl bg-white/15 px-4 py-3 text-sm font-bold text-white">
+                Haftalık ödülün hazır. Puanların ve ilerlemen hesabında aktif tutuluyor.
+              </p>
+            )}
           </div>
         </section>
       </main>

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, ArrowRight, Lightbulb, MessageCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Lightbulb } from 'lucide-react';
 import { getSlidesForUnit } from '@/data/curriculum';
 import { TopicSlide } from '@/types/curriculum';
 
@@ -76,14 +76,6 @@ export default function SlidesScreen({ unitId, slides: sourceSlides, onComplete,
               <p className="text-[17px] leading-7 text-[#2f1d14]">{slide.content}</p>
               <div className="absolute -right-10 -top-10 h-28 w-28 rounded-full bg-[#ffddb9]/40 blur-2xl" />
               <div className="absolute -bottom-10 -left-10 h-28 w-28 rounded-full bg-primary/10 blur-2xl" />
-            </div>
-          </div>
-          <div className="absolute bottom-4 right-4 flex max-w-[78%] items-end gap-2">
-            <div className="rounded-2xl rounded-br-none border border-primary/40 bg-primary p-3 text-[11px] leading-4 text-white shadow-lg">
-              Bir sonraki adımda bunu küçük bir alıştırmayla pekiştireceğiz.
-            </div>
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 border-primary bg-white">
-              <MessageCircle className="h-5 w-5 text-primary" />
             </div>
           </div>
         </section>
